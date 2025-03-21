@@ -22,6 +22,8 @@
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 
+#include <stdio.h>
+
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -31,6 +33,10 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
+	//ADC Settings
+#define ADC_MULTI		0.9357		// (Ref/ADCres)=3345/4095 =0.81685
+#define AREF_MILLI    	1100		// Ref Voltage
+#define RES_RATIO     	5.846599	// prev 4.2
 
 /* USER CODE END PD */
 
@@ -48,9 +54,6 @@ UART_HandleTypeDef huart2;
 
 /* USER CODE BEGIN PV */
 
-#define LED_PORT 	GPIOA
-#define LED_PIN 	GPIO_PIN_8
-
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -60,6 +63,8 @@ static void MX_USART2_UART_Init(void);
 static void MX_ADC1_Init(void);
 static void MX_I2C1_Init(void);
 /* USER CODE BEGIN PFP */
+
+uint32_t ReadVoltage(void);
 
 /* USER CODE END PFP */
 
@@ -111,10 +116,26 @@ int main(void)
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
-	  HAL_GPIO_WritePin(LED_GREEN_GPIO_Port, LED_GREEN_Pin, SET);
-	  HAL_Delay(500);
-	  HAL_GPIO_WritePin(LED_GREEN_GPIO_Port, LED_GREEN_Pin, RESET);
-	  HAL_Delay(500);
+
+	  // Let green LED BLINK
+	  static uint32_t lastBlink;
+	  if(HAL_GetTick() - lastBlink >= 500){	// once every Second
+		  lastBlink = HAL_GetTick();
+		  static uint8_t toggle;
+		  if(toggle == 0){
+			  toggle = 1;
+		  }else{
+			  toggle = 0;
+		  }
+		  HAL_GPIO_WritePin(LED_GREEN_GPIO_Port, LED_GREEN_Pin, toggle);
+	  }
+
+	  // Read analog voltage at A0
+	  static uint32_t lastAdcRead;
+	  if(HAL_GetTick() - lastAdcRead >= 1000){	// once every Second
+		  lastAdcRead = HAL_GetTick();
+		  uint32_t analogRead = ReadVoltage();
+	  }
 
   }
   /* USER CODE END 3 */
@@ -359,6 +380,18 @@ static void MX_GPIO_Init(void)
 }
 
 /* USER CODE BEGIN 4 */
+uint32_t ReadVoltage(void){
+	HAL_ADC_Start(&hadc1);
+	HAL_ADC_PollForConversion(&hadc1, 1);						// 1 ms Timeout
+	uint32_t ADC_value = HAL_ADC_GetValue(&hadc1) * ADC_MULTI;
+	uint32_t voltage = ((float)ADC_value*(float)RES_RATIO);
+
+	//printf("ADC value: %li\n",ADC_value);
+	//printf("voltage: %li\n",voltage);
+
+	return voltage;
+}
+
 
 /* USER CODE END 4 */
 
