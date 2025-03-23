@@ -32,6 +32,8 @@
 /* Private typedef -----------------------------------------------------------*/
 /* USER CODE BEGIN PTD */
 
+volatile uint8_t peepState = 0;
+
 typedef struct{
 	float			climb_threshold;
 	float			near_climb_threshold;
@@ -103,6 +105,9 @@ ADC_HandleTypeDef hadc1;
 
 I2C_HandleTypeDef hi2c1;
 
+TIM_HandleTypeDef htim2;
+TIM_HandleTypeDef htim6;
+
 UART_HandleTypeDef huart2;
 
 /* USER CODE BEGIN PV */
@@ -121,7 +126,11 @@ static void MX_GPIO_Init(void);
 static void MX_USART2_UART_Init(void);
 static void MX_ADC1_Init(void);
 static void MX_I2C1_Init(void);
+static void MX_TIM2_Init(void);
+static void MX_TIM6_Init(void);
 /* USER CODE BEGIN PFP */
+
+extern inline void PeepTimCallback(void);
 
 void loadSettings(void);
 void ReadVoltage(Battery_t*);
@@ -130,11 +139,25 @@ float constrain(float, float, float);
 float mapfloat(float, float, float, float, float);
 void InitBaro(void);
 void ReadBaro(Barometer_t*);
+void CalculateTone(float, Beeper_t*);
+void applyF(unsigned int, float, uint8_t);
+extern inline void DisableF(void);
 
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
+
+//Called by TIM6_DAC_IRQHandler
+extern inline void PeepTimCallback(void) {
+	if (peepState == 1) {
+		TIM2->CR1 &= 0xFE;	//Disable Timer
+		peepState = 0;
+	} else {
+		TIM2->CR1 |= 0x01;	//Enable  Timer
+		peepState = 1;
+	}
+}
 
 /* USER CODE END 0 */
 
@@ -146,6 +169,9 @@ int main(void)
 {
 
   /* USER CODE BEGIN 1 */
+
+	printf("\tBuilt-date: %s\n", BUILT_DATE);
+	printf("\tBuilt-time: %s\n", BUILT_TIME);
 
 	LoadSettings();
 
@@ -172,9 +198,19 @@ int main(void)
   MX_USART2_UART_Init();
   MX_ADC1_Init();
   MX_I2C1_Init();
+  MX_TIM2_Init();
+  MX_TIM6_Init();
   /* USER CODE BEGIN 2 */
 
   InitBaro();
+
+  //Start the timers for beeping
+  HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_3);
+  HAL_TIM_Base_Start_IT(&htim6);;
+  HAL_Delay(1);
+  DisableF();
+
+  double userValue = 5.0;
 
   printf("***********LOOP START***********\n");
   /* USER CODE END 2 */
@@ -207,11 +243,17 @@ int main(void)
 	  // Read Baro
 	  ReadBaro(&Baro);
 
+	  // Generate a tone out of vertical speed
+	  CalculateTone(Baro.verticalSpeed, &Beeper);
+	  //CalculateTone(userValue, &Beeper);						// Test: generate tone for 5 m/s climb
 
 	  // LCD Code....
+	  static uint32_t lastScreenUpdate;
+	  if(HAL_GetTick() - lastScreenUpdate >= SCREEN_UPDATE_TIME){
+		  //gets called periodically
 
-
-
+		  lastScreenUpdate = HAL_GetTick();
+	  }
 
   }
   /* USER CODE END 3 */
@@ -382,6 +424,107 @@ static void MX_I2C1_Init(void)
 }
 
 /**
+  * @brief TIM2 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_TIM2_Init(void)
+{
+
+  /* USER CODE BEGIN TIM2_Init 0 */
+
+  /* USER CODE END TIM2_Init 0 */
+
+  TIM_ClockConfigTypeDef sClockSourceConfig = {0};
+  TIM_MasterConfigTypeDef sMasterConfig = {0};
+  TIM_OC_InitTypeDef sConfigOC = {0};
+
+  /* USER CODE BEGIN TIM2_Init 1 */
+
+  /* USER CODE END TIM2_Init 1 */
+  htim2.Instance = TIM2;
+  htim2.Init.Prescaler = 80;
+  htim2.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim2.Init.Period = 600;
+  htim2.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+  htim2.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+  if (HAL_TIM_Base_Init(&htim2) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sClockSourceConfig.ClockSource = TIM_CLOCKSOURCE_INTERNAL;
+  if (HAL_TIM_ConfigClockSource(&htim2, &sClockSourceConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  if (HAL_TIM_PWM_Init(&htim2) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
+  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
+  if (HAL_TIMEx_MasterConfigSynchronization(&htim2, &sMasterConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sConfigOC.OCMode = TIM_OCMODE_PWM1;
+  sConfigOC.Pulse = 300;
+  sConfigOC.OCPolarity = TIM_OCPOLARITY_HIGH;
+  sConfigOC.OCFastMode = TIM_OCFAST_ENABLE;
+  if (HAL_TIM_PWM_ConfigChannel(&htim2, &sConfigOC, TIM_CHANNEL_1) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  if (HAL_TIM_PWM_ConfigChannel(&htim2, &sConfigOC, TIM_CHANNEL_3) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN TIM2_Init 2 */
+
+  /* USER CODE END TIM2_Init 2 */
+  HAL_TIM_MspPostInit(&htim2);
+
+}
+
+/**
+  * @brief TIM6 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_TIM6_Init(void)
+{
+
+  /* USER CODE BEGIN TIM6_Init 0 */
+
+  /* USER CODE END TIM6_Init 0 */
+
+  TIM_MasterConfigTypeDef sMasterConfig = {0};
+
+  /* USER CODE BEGIN TIM6_Init 1 */
+
+  /* USER CODE END TIM6_Init 1 */
+  htim6.Instance = TIM6;
+  htim6.Init.Prescaler = 2000;
+  htim6.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim6.Init.Period = 10;
+  htim6.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+  if (HAL_TIM_Base_Init(&htim6) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sMasterConfig.MasterOutputTrigger = TIM_TRGO_UPDATE;
+  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
+  if (HAL_TIMEx_MasterConfigSynchronization(&htim6, &sMasterConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN TIM6_Init 2 */
+
+  /* USER CODE END TIM6_Init 2 */
+
+}
+
+/**
   * @brief USART2 Initialization Function
   * @param None
   * @retval None
@@ -470,6 +613,7 @@ void LoadSettings(){
 	Beeper.stop_f_sink = 			SINK_FREQUENCY_AT_MIN_VARIO;
 	Beeper.min_peep_time_start = 	MIN_PEEP_TIME_AT_THRESHOLD;
 	Beeper.min_peep_time_stop = 	MIN_PEEP_TIME_AT_MAX_VARIO;
+	Beeper.volume = 				MAX_VOLUME;
 
 	Battery.voltAt0Percent = 		BAT_0;
 	Battery.voltAt5Percent = 		BAT_5;
@@ -551,11 +695,11 @@ void InitBaro(){
 	// Set normal mode inactive duration (standby time)
 	BMP280_SetStandby(BMP280_STBY_1s);
 	// Set IIR filter constant
-	BMP280_SetFilter(BMP280_FILTER_8);
+	BMP280_SetFilter(BMP280_FILTER_OFF);
 	// Set oversampling for temperature
 	BMP280_SetOSRST(BMP280_OSRS_T_x2);
 	// Set oversampling for pressure
-	BMP280_SetOSRSP(BMP280_OSRS_P_x8);
+	BMP280_SetOSRSP(BMP280_OSRS_P_x1);
 	// Set normal mode (perpetual periodic conversion)
 	BMP280_SetMode(BMP280_MODE_NORMAL);
 
@@ -588,6 +732,100 @@ void ReadBaro(Barometer_t *tmpBaro){
 
 		tmpBaro->altitude = newAltitude;
 	}
+}
+
+
+void CalculateTone(float vSpeed, Beeper_t *tmpBeeper){
+	static float oldVSpeed;
+	static uint32_t peep_start;
+	vSpeed = constrain(vSpeed, MIN_VARIO , MAX_VARIO);
+
+	if(oldVSpeed >= tmpBeeper->climb_threshold){
+		unsigned int peep_time = (unsigned int)mapfloat(oldVSpeed, tmpBeeper->climb_threshold, MAX_VARIO,
+						(float)tmpBeeper->min_peep_time_start, (float)tmpBeeper->min_peep_time_stop);
+		if (HAL_GetTick() - peep_start < peep_time)
+			return;
+	}else if(oldVSpeed <= tmpBeeper->sink_threshold){
+		if (HAL_GetTick() - peep_start < 100)
+			return;
+	}
+
+	peep_start = HAL_GetTick();
+	// Check if change in vertical speed
+	if(vSpeed > oldVSpeed-0.1 && vSpeed < oldVSpeed+0.1)
+		return;
+
+	oldVSpeed = vSpeed;
+
+	if(vSpeed >= tmpBeeper->climb_threshold){
+		unsigned int freqency = mapfloat(vSpeed,0.0, MAX_VARIO, tmpBeeper->start_f_climb, tmpBeeper->stop_f_climb);
+		float peepsPS = mapfloat(vSpeed, 0.0, MAX_VARIO, tmpBeeper->climb_beeps_start,tmpBeeper->climb_beeps_stop);
+		applyF(freqency,peepsPS, tmpBeeper->volume);
+
+	}else if(vSpeed >= tmpBeeper->near_climb_threshold && vSpeed < tmpBeeper->climb_threshold && ENABLE_NEAR_CLIMB){
+		unsigned int freqency = 550;
+		applyF(freqency,0.25,tmpBeeper->volume);
+
+	}else if(vSpeed <= tmpBeeper->sink_threshold){
+		TIM6->CR1 &= 0xFE;	//Disable Timer
+		unsigned int freqency = mapfloat(vSpeed,0.0, MIN_VARIO, tmpBeeper->start_f_sink, tmpBeeper->stop_f_sink);
+		applyF(freqency,0.0,tmpBeeper->volume);
+
+	}else{	// stop peep
+		DisableF();
+	}
+}
+
+/*
+ * SYSCLOCK = 80 MHz
+ * TIM2 prescaler = 80
+ * => TIM2 freq = 1MHz
+ * TIM2 autoload = 600
+ * TIM2 pulse = 300
+ *
+ * TIM6 prescaler = 2000
+ * => TIM6 freq = 40kHz
+ * TIM6 autoload = 10
+ *
+ *
+ * TIM2 is for PWM, so tone pitch and volume
+ * TIM6 is for beeping, so the slow second modulation of this tone
+ */
+void applyF(unsigned int freq, float bps, uint8_t vol){
+	/*
+	 * freq in Hz
+	 * bps in float beeps, per seconds
+	 * vol 1 - 10
+	 */
+	if(vol == 0){
+		DisableF();
+		return;
+	}
+	uint32_t period = 1000000/freq;				//new counter period = freq (in µs)
+	uint32_t Bperiod = 40000.0f/(bps * 2.0); 	// * 2.0
+	uint32_t volume = (float)period / mapfloat((float)vol, 1.0, 10.0, 1000.0, 1.1);	//new pulse width = volume (max 1/2 freq)
+
+	DisableF();
+	TIM2->ARR = period -1 ;
+	if(TIM2->CNT >= TIM2->ARR)
+		TIM2->CNT = 0;
+	TIM2->CCR1 = volume;
+	if(bps > 0.001){
+		TIM6->CNT = 0;
+		TIM6->ARR = Bperiod- 1;
+		//TIM6->CCR1 = Bperiod / 2;
+		TIM6->CR1 |= 0x01;	//Enable  Timer
+	}
+	TIM2->CR1 |= 0x01;	//Enable  Timer
+	peepState = 1;
+}
+
+extern inline void DisableF(void){
+	if(TIM2->CNT < TIM2->ARR){
+		TIM2->CNT = TIM2->ARR + 1;
+	}
+	TIM6->CR1 &= 0xFE;	//Disable Timer
+	TIM2->CR1 &= 0xFE;	//Disable Timer
 }
 
 /* USER CODE END 4 */

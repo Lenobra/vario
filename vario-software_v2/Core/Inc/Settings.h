@@ -8,16 +8,20 @@
 #ifndef INC_SETTINGS_H_
 #define INC_SETTINGS_H_
 
+#define BUILT_DATE				__DATE__	// Store the built date
+#define BUILT_TIME				__TIME__	// Store the built time
+
 // A common place for all settings
 // Blink
 #define BLINK_TIME						500			// ms
 
 // LCD
-#define SCREEN_UPDATE_TIME				100			// ms
+#define SCREEN_UPDATE_TIME				500			// ms
 
 // Vario settings
 #define CLIMB_THRESHOLD					(0.3)   	// m/s
 #define NEAR_CLIMB_THRESHOLD			(0.1)   	// m/s
+#define ENABLE_NEAR_CLIMB				0			// (0 / 1) Choose if near climb alarm is on
 #define SINK_THRESHOLD					(-3.0)   	// m/s
 
 #define CLIMB_BEEPS_AT_THRESHOLD	   	1.7    		// Beeps per second start 1,2
@@ -34,7 +38,7 @@
 #define MAX_VARIO          		 		10.0   		// m/s
 #define MIN_VARIO           			(-10.0)   	// m/s
 
-#define MAX_VOLUME						10			// 1 - 10
+#define MAX_VOLUME						5			// 1 - 10
 
 // ADC settings
 #define ADC_MULTI						0.9357		// (Ref/ADCres)=3345/4095 =0.81685
