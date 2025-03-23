@@ -23,20 +23,70 @@
 /* USER CODE BEGIN Includes */
 
 #include <stdio.h>
+#include "Settings.h"
 
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
 /* USER CODE BEGIN PTD */
 
+typedef struct{
+	float			climb_threshold;
+	float			near_climb_threshold;
+	float			sink_threshold;
+	float			climb_beeps_start;
+	float			climb_beeps_stop;
+
+	unsigned int 	start_f_climb;
+	unsigned int 	stop_f_climb;
+	unsigned int 	start_f_sink;
+	unsigned int 	stop_f_sink;
+	unsigned int 	min_peep_time_start;
+	unsigned int 	min_peep_time_stop;
+
+	uint8_t			volume;
+}Beeper_t;
+
+typedef struct{
+	float			preassure;
+	float			altitude;
+	int				temperature;
+
+	float			preassureSealevel;
+}Barometer_t;
+
+typedef struct{
+	uint8_t 		temperature;
+	uint8_t 		speed;
+	uint8_t 		backlight;
+	uint8_t			batteryPercent;
+	double	 		altitude;
+	double			preassure;
+	double	 		verticalSpeed;
+}Lcd_t;
+
+typedef struct{
+	char 			Name[20];
+	char 			ID[10];
+}PilotData_t;
+
+typedef struct{
+	uint32_t		voltage;
+	uint8_t			percent;
+
+	uint32_t		voltAt0Percent;
+	uint32_t		voltAt5Percent;
+	uint32_t		voltAt20Percent;
+	uint32_t		voltAt75Percent;
+	uint32_t		voltAt100Percent;
+}Battery_t;
+
+
+
 /* USER CODE END PTD */
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
-	//ADC Settings
-#define ADC_MULTI		0.9357		// (Ref/ADCres)=3345/4095 =0.81685
-#define AREF_MILLI    	1100		// Ref Voltage
-#define RES_RATIO     	5.846599	// prev 4.2
 
 /* USER CODE END PD */
 
@@ -54,6 +104,12 @@ UART_HandleTypeDef huart2;
 
 /* USER CODE BEGIN PV */
 
+Beeper_t Beeper;
+Barometer_t Baro;
+Lcd_t Lcd;
+PilotData_t Pilot;
+Battery_t Battery;
+
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -64,7 +120,11 @@ static void MX_ADC1_Init(void);
 static void MX_I2C1_Init(void);
 /* USER CODE BEGIN PFP */
 
-uint32_t ReadVoltage(void);
+void loadSettings(void);
+void ReadVoltage(Battery_t*);
+void CalcBatteryPercent(Battery_t*);
+float constrain(float, float, float);
+float mapfloat(float, float, float, float, float);
 
 /* USER CODE END PFP */
 
@@ -81,6 +141,8 @@ int main(void)
 {
 
   /* USER CODE BEGIN 1 */
+
+	LoadSettings();
 
   /* USER CODE END 1 */
 
@@ -119,22 +181,19 @@ int main(void)
 
 	  // Let green LED BLINK
 	  static uint32_t lastBlink;
-	  if(HAL_GetTick() - lastBlink >= 500){	// once every Second
+	  static uint8_t toggle;
+	  if(HAL_GetTick() - lastBlink >= BLINK_TIME){	// once every Second
 		  lastBlink = HAL_GetTick();
-		  static uint8_t toggle;
-		  if(toggle == 0){
-			  toggle = 1;
-		  }else{
-			  toggle = 0;
-		  }
+		  toggle = !toggle;
 		  HAL_GPIO_WritePin(LED_GREEN_GPIO_Port, LED_GREEN_Pin, toggle);
 	  }
 
 	  // Read analog voltage at A0
 	  static uint32_t lastAdcRead;
-	  if(HAL_GetTick() - lastAdcRead >= 1000){	// once every Second
+	  if(HAL_GetTick() - lastAdcRead >= BATTERY_UPDATE_TIME){		// once every Second
 		  lastAdcRead = HAL_GetTick();
-		  uint32_t analogRead = ReadVoltage();
+		  ReadVoltage(&Battery);
+		  CalcBatteryPercent(&Battery);
 	  }
 
   }
@@ -380,7 +439,32 @@ static void MX_GPIO_Init(void)
 }
 
 /* USER CODE BEGIN 4 */
-uint32_t ReadVoltage(void){
+
+void LoadSettings(void){
+	// Fill all the values from Settings.h to all structs
+	Beeper.climb_threshold = 		CLIMB_THRESHOLD;
+	Beeper.near_climb_threshold = 	NEAR_CLIMB_THRESHOLD;
+	Beeper.sink_threshold = 		SINK_THRESHOLD;
+	Beeper.climb_beeps_start = 		CLIMB_BEEPS_AT_THRESHOLD;
+	Beeper.climb_beeps_stop = 		CLIMB_BEEPS_AT_MAX_VARIO;
+	Beeper.start_f_climb = 			CLIMB_FREQUENCY_AT_THERSHOLD;
+	Beeper.stop_f_climb = 			CLIMB_FREQUENCY_AT_MAX_VARIO;
+	Beeper.start_f_sink = 			SINK_FREQUENCY_AT_THERSHOLD;
+	Beeper.stop_f_sink = 			SINK_FREQUENCY_AT_MIN_VARIO;
+	Beeper.min_peep_time_start = 	MIN_PEEP_TIME_AT_THRESHOLD;
+	Beeper.min_peep_time_stop = 	MIN_PEEP_TIME_AT_MAX_VARIO;
+
+	Battery.voltAt0Percent = 		BAT_0;
+	Battery.voltAt5Percent = 		BAT_5;
+	Battery.voltAt20Percent = 		BAT_20;
+	Battery.voltAt75Percent = 		BAT_75;
+	Battery.voltAt100Percent = 		BAT_100;
+
+	Baro.preassureSealevel = 		PRASSURE_AT_SEALEVEL;
+
+}
+
+void ReadVoltage(Battery_t *tmpBat){
 	HAL_ADC_Start(&hadc1);
 	HAL_ADC_PollForConversion(&hadc1, 1);						// 1 ms Timeout
 	uint32_t ADC_value = HAL_ADC_GetValue(&hadc1) * ADC_MULTI;
@@ -389,7 +473,55 @@ uint32_t ReadVoltage(void){
 	//printf("ADC value: %li\n",ADC_value);
 	//printf("voltage: %li\n",voltage);
 
-	return voltage;
+	tmpBat->voltage = voltage;
+}
+
+void CalcBatteryPercent(Battery_t *tmpBat){
+	float x0, y0, x1, y1, yp;
+	//Handle Error
+	if(tmpBat->voltage < tmpBat->voltAt0Percent){
+		tmpBat->percent = 0;
+		return;
+	}
+	if(tmpBat->voltage > tmpBat->voltAt100Percent){
+		tmpBat->percent = 100;
+		return;
+	}
+
+	if(tmpBat->voltage >= tmpBat->voltAt0Percent && tmpBat->voltage < tmpBat->voltAt5Percent){
+		x0=tmpBat->voltAt0Percent;
+		y0=0;
+		x1=tmpBat->voltAt5Percent;
+		y1=5;
+	}else if(tmpBat->voltage >= tmpBat->voltAt5Percent && tmpBat->voltage < tmpBat->voltAt20Percent){
+		x0=tmpBat->voltAt5Percent;
+		y0=5;
+		x1=tmpBat->voltAt20Percent;
+		y1=20;
+	}else if(tmpBat->voltage >= tmpBat->voltAt20Percent && tmpBat->voltage < tmpBat->voltAt75Percent){
+		x0=tmpBat->voltAt20Percent;
+		y0=20;
+		x1=tmpBat->voltAt75Percent;
+		y1=75;
+	}else if(tmpBat->voltage >= tmpBat->voltAt75Percent && tmpBat->voltage <= tmpBat->voltAt100Percent){
+		x0=tmpBat->voltAt75Percent;
+		y0=75;
+		x1=tmpBat->voltAt100Percent;
+		y1=100;
+	}
+
+	yp = y0 + ((y1-y0)/(x1-x0)) * (tmpBat->voltage - x0);
+	//return (uint8_t)yp;
+	tmpBat->percent = (uint8_t)yp;
+}
+
+float constrain(float v0, float v1, float v2){	//constrain v0 to min v1 and max v2
+	if(v0 < v1) v0 = v1;
+	if(v0 > v2) v0 = v2;
+	return v0;
+}
+float mapfloat(float x, float in_min, float in_max, float out_min, float out_max) {
+	return (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
 }
 
 
