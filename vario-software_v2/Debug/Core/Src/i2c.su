@@ -1,0 +1,5 @@
+../Core/Src/i2c.c:36:17:I2C_CalcDelay	24	static
+../Core/Src/i2c.c:127:11:I2C_IsDeviceReady	56	static
+../Core/Src/i2c.c:185:11:I2C_Transmit	40	static
+../Core/Src/i2c.c:270:11:I2C_Receive	40	static
+../Core/Src/i2c.c:350:11:I2C_GeneralCall	24	static

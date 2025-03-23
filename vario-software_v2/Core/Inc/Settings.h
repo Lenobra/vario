@@ -9,6 +9,9 @@
 #define INC_SETTINGS_H_
 
 // A common place for all settings
+// Blink
+#define BLINK_TIME						500			// ms
+
 // LCD
 #define SCREEN_UPDATE_TIME				100			// ms
 
@@ -48,8 +51,8 @@
 #define BAT_100							4100		// Voltage @ 100%
 
 // Barometer settings
-#define PRASSURE_AT_SEALEVEL			1023		// hPa
-#define BMP280_ADDRESS					0x00		// hex
-
+#define PRASSURE_AT_SEALEVEL			1013.25f	// hPa
+#define BMP280_ADDRESS					0x76  << 1	// hex (bitshift, because adr is 7Bit)
+#define BARO_UPDATE_TIME				250			// in ms
 
 #endif /* INC_SETTINGS_H_ */

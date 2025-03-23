@@ -24,6 +24,8 @@
 
 #include <stdio.h>
 #include "Settings.h"
+#include "bmp280.h"
+#include <math.h>
 
 /* USER CODE END Includes */
 
@@ -50,7 +52,8 @@ typedef struct{
 typedef struct{
 	float			preassure;
 	float			altitude;
-	int				temperature;
+	float			temperature;
+	float			verticalSpeed;
 
 	float			preassureSealevel;
 }Barometer_t;
@@ -125,6 +128,8 @@ void ReadVoltage(Battery_t*);
 void CalcBatteryPercent(Battery_t*);
 float constrain(float, float, float);
 float mapfloat(float, float, float, float, float);
+void InitBaro(void);
+void ReadBaro(Barometer_t*);
 
 /* USER CODE END PFP */
 
@@ -169,6 +174,9 @@ int main(void)
   MX_I2C1_Init();
   /* USER CODE BEGIN 2 */
 
+  InitBaro();
+
+  printf("***********LOOP START***********\n");
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -179,7 +187,7 @@ int main(void)
 
     /* USER CODE BEGIN 3 */
 
-	  // Let green LED BLINK
+	  // Let green LED blink
 	  static uint32_t lastBlink;
 	  static uint8_t toggle;
 	  if(HAL_GetTick() - lastBlink >= BLINK_TIME){	// once every Second
@@ -195,6 +203,15 @@ int main(void)
 		  ReadVoltage(&Battery);
 		  CalcBatteryPercent(&Battery);
 	  }
+
+	  // Read Baro
+	  ReadBaro(&Baro);
+
+
+	  // LCD Code....
+
+
+
 
   }
   /* USER CODE END 3 */
@@ -440,7 +457,7 @@ static void MX_GPIO_Init(void)
 
 /* USER CODE BEGIN 4 */
 
-void LoadSettings(void){
+void LoadSettings(){
 	// Fill all the values from Settings.h to all structs
 	Beeper.climb_threshold = 		CLIMB_THRESHOLD;
 	Beeper.near_climb_threshold = 	NEAR_CLIMB_THRESHOLD;
@@ -524,6 +541,54 @@ float mapfloat(float x, float in_min, float in_max, float out_min, float out_max
 	return (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
 }
 
+void InitBaro(){
+	if(BMP280_Check()== 1)
+		printf("all good");
+	else
+		printf("no i2c device found");
+
+	BMP280_Read_Calibration();
+	// Set normal mode inactive duration (standby time)
+	BMP280_SetStandby(BMP280_STBY_1s);
+	// Set IIR filter constant
+	BMP280_SetFilter(BMP280_FILTER_8);
+	// Set oversampling for temperature
+	BMP280_SetOSRST(BMP280_OSRS_T_x2);
+	// Set oversampling for pressure
+	BMP280_SetOSRSP(BMP280_OSRS_P_x8);
+	// Set normal mode (perpetual periodic conversion)
+	BMP280_SetMode(BMP280_MODE_NORMAL);
+
+}
+
+void ReadBaro(Barometer_t *tmpBaro){
+	static uint32_t lastBaroRead;
+	static uint32_t conversionTimer;
+
+	static int32_t raw_preassure, raw_temperature;
+
+
+	if(HAL_GetTick() - conversionTimer > 12){
+		BMP280_Read_UTP(&raw_temperature, &raw_preassure);
+		conversionTimer = HAL_GetTick();
+	}
+
+	if(HAL_GetTick() - lastBaroRead > BARO_UPDATE_TIME){
+		double baroElapsedTime = (HAL_GetTick() - lastBaroRead) / 1000.0f;	// get exact time since last read in Seconds
+		lastBaroRead = HAL_GetTick();
+
+		tmpBaro->temperature = BMP280_CalcT(raw_temperature) / 100.0;
+		tmpBaro->preassure = BMP280_CalcP(raw_preassure) / 100000.0;
+
+		float r= tmpBaro->preassure / tmpBaro->preassureSealevel;
+		float newAltitude = (1.0 - pow(r,0.1902949f))*44330.77f;
+
+		float altitudeDelta = tmpBaro->altitude - newAltitude;
+		tmpBaro->verticalSpeed = (altitudeDelta / baroElapsedTime);
+
+		tmpBaro->altitude = newAltitude;
+	}
+}
 
 /* USER CODE END 4 */
 
