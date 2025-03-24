@@ -32,7 +32,7 @@
 /* Private typedef -----------------------------------------------------------*/
 /* USER CODE BEGIN PTD */
 
-volatile uint8_t peepState = 0;
+volatile uint8_t peepState = 0;				// needs to be volatile, because its needed in interrups
 
 typedef struct{
 	float			climb_threshold;
@@ -130,18 +130,22 @@ static void MX_TIM2_Init(void);
 static void MX_TIM6_Init(void);
 /* USER CODE BEGIN PFP */
 
+float constrain(float, float, float);					// custom math function, as in Arudino IDE
+float mapfloat(float, float, float, float, float);		// custom math function, as in Arudino IDE
+
 extern inline void PeepTimCallback(void);
 
-void loadSettings(void);
+void LoadSettings(void);
 void ReadVoltage(Battery_t*);
 void CalcBatteryPercent(Battery_t*);
-float constrain(float, float, float);
-float mapfloat(float, float, float, float, float);
 void InitBaro(void);
 void ReadBaro(Barometer_t*);
 void CalculateTone(float, Beeper_t*);
 void applyF(unsigned int, float, uint8_t);
 extern inline void DisableF(void);
+
+void InitLcd(void);
+void UpdateLcd(Lcd_t*);
 
 /* USER CODE END PFP */
 
@@ -149,12 +153,12 @@ extern inline void DisableF(void);
 /* USER CODE BEGIN 0 */
 
 //Called by TIM6_DAC_IRQHandler
-extern inline void PeepTimCallback(void) {
-	if (peepState == 1) {
-		TIM2->CR1 &= 0xFE;	//Disable Timer
+extern inline void PeepTimCallback(void) {		// This function needs to be inline, because its called very often by a timer iterrupt. To not waste time, put this fuction right where the IRQ stepin is
+	if (peepState == 1) {						// Depending if the Buzzer was on bevor
+		TIM2->CR1 &= 0xFE;						// Disable Timer 2
 		peepState = 0;
 	} else {
-		TIM2->CR1 |= 0x01;	//Enable  Timer
+		TIM2->CR1 |= 0x01;						// Enable  Timer 2
 		peepState = 1;
 	}
 }
@@ -170,10 +174,10 @@ int main(void)
 
   /* USER CODE BEGIN 1 */
 
-	printf("\tBuilt-date: %s\n", BUILT_DATE);
-	printf("\tBuilt-time: %s\n", BUILT_TIME);
+	printf("\tBuilt-date: %s\n", BUILT_DATE);	// show the date of the last built, to make sure its the correct one
+	printf("\tBuilt-time: %s\n", BUILT_TIME);	// show the time of the last built, to make sure its the correct one
 
-	LoadSettings();
+	LoadSettings();								// Load all the Setting from the Settings.h to the global variables
 
   /* USER CODE END 1 */
 
@@ -202,15 +206,16 @@ int main(void)
   MX_TIM6_Init();
   /* USER CODE BEGIN 2 */
 
-  InitBaro();
+  InitBaro();									// Initialize the barometer to set all the oversampling-rates and filters right values
+  InitLcd();									// Initialize the Liquid crystal Display
 
   //Start the timers for beeping
-  HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_3);
-  HAL_TIM_Base_Start_IT(&htim6);;
+  HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_3);		// Start timer 2
+  HAL_TIM_Base_Start_IT(&htim6);;				// Start timer 6
   HAL_Delay(1);
-  DisableF();
+  DisableF();									// Timers started already, stop them for no annoiing Buzzer sound
 
-  double userValue = 5.0;
+  double userValue = 5.0;						// Only for test purposes
 
   printf("***********LOOP START***********\n");
   /* USER CODE END 2 */
@@ -226,32 +231,31 @@ int main(void)
 	  // Let green LED blink
 	  static uint32_t lastBlink;
 	  static uint8_t toggle;
-	  if(HAL_GetTick() - lastBlink >= BLINK_TIME){	// once every Second
-		  lastBlink = HAL_GetTick();
+	  if(HAL_GetTick() - lastBlink >= BLINK_TIME){						// Check if enough time passed and this part should now be executed
+		  lastBlink = HAL_GetTick();									// Reset timer variable
 		  toggle = !toggle;
 		  HAL_GPIO_WritePin(LED_GREEN_GPIO_Port, LED_GREEN_Pin, toggle);
 	  }
 
 	  // Read analog voltage at A0
 	  static uint32_t lastAdcRead;
-	  if(HAL_GetTick() - lastAdcRead >= BATTERY_UPDATE_TIME){		// once every Second
-		  lastAdcRead = HAL_GetTick();
-		  ReadVoltage(&Battery);
-		  CalcBatteryPercent(&Battery);
+	  if(HAL_GetTick() - lastAdcRead >= BATTERY_UPDATE_TIME){			// Check if enough time passed and this part should now be executed
+		  lastAdcRead = HAL_GetTick();									// Reset timer variable
+		  ReadVoltage(&Battery);										// Read voltage from analog pin, the battery and store it in the Battery enum
+		  CalcBatteryPercent(&Battery);									// Calculate a percentace out of the voltage, according to the real discharge curve
 	  }
 
 	  // Read Baro
-	  ReadBaro(&Baro);
+	  ReadBaro(&Baro);													// Read the I2C Barometer data, Preassure and Temperature
 
 	  // Generate a tone out of vertical speed
 	  CalculateTone(Baro.verticalSpeed, &Beeper);
-	  //CalculateTone(userValue, &Beeper);						// Test: generate tone for 5 m/s climb
+	  //CalculateTone(userValue, &Beeper);								// Test: generate tone for 5 m/s climb
 
 	  // LCD Code....
 	  static uint32_t lastScreenUpdate;
-	  if(HAL_GetTick() - lastScreenUpdate >= SCREEN_UPDATE_TIME){
-		  //gets called periodically
-
+	  if(HAL_GetTick() - lastScreenUpdate >= SCREEN_UPDATE_TIME){		// Check if enough time passed and this part should now be executed
+		  UpdateLcd(&Lcd);												// Update all the elements of the display
 		  lastScreenUpdate = HAL_GetTick();
 	  }
 
@@ -613,7 +617,7 @@ void LoadSettings(){
 	Beeper.stop_f_sink = 			SINK_FREQUENCY_AT_MIN_VARIO;
 	Beeper.min_peep_time_start = 	MIN_PEEP_TIME_AT_THRESHOLD;
 	Beeper.min_peep_time_stop = 	MIN_PEEP_TIME_AT_MAX_VARIO;
-	Beeper.volume = 				MAX_VOLUME;
+	Beeper.volume = 				VOLUME;
 
 	Battery.voltAt0Percent = 		BAT_0;
 	Battery.voltAt5Percent = 		BAT_5;
@@ -637,6 +641,10 @@ void ReadVoltage(Battery_t *tmpBat){
 	tmpBat->voltage = voltage;
 }
 
+/*
+ * Map the Battery voltage to a real Discharge curve
+ * The curve is based on a 4 point model
+ */
 void CalcBatteryPercent(Battery_t *tmpBat){
 	float x0, y0, x1, y1, yp;
 	//Handle Error
@@ -676,11 +684,18 @@ void CalcBatteryPercent(Battery_t *tmpBat){
 	tmpBat->percent = (uint8_t)yp;
 }
 
-float constrain(float v0, float v1, float v2){	//constrain v0 to min v1 and max v2
+/*
+ * constrain v0 to min v1 and max v2
+ */
+float constrain(float v0, float v1, float v2){
 	if(v0 < v1) v0 = v1;
 	if(v0 > v2) v0 = v2;
 	return v0;
 }
+
+/*
+ * linear conversion from a value between x and y to a range from a to b
+ */
 float mapfloat(float x, float in_min, float in_max, float out_min, float out_max) {
 	return (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
 }
@@ -691,18 +706,12 @@ void InitBaro(){
 	else
 		printf("no i2c device found");
 
-	BMP280_Read_Calibration();
-	// Set normal mode inactive duration (standby time)
-	BMP280_SetStandby(BMP280_STBY_1s);
-	// Set IIR filter constant
-	BMP280_SetFilter(BMP280_FILTER_OFF);
-	// Set oversampling for temperature
-	BMP280_SetOSRST(BMP280_OSRS_T_x2);
-	// Set oversampling for pressure
-	BMP280_SetOSRSP(BMP280_OSRS_P_x1);
-	// Set normal mode (perpetual periodic conversion)
-	BMP280_SetMode(BMP280_MODE_NORMAL);
-
+	BMP280_Read_Calibration();				// Read internal calibaration data and save them locally (needed for further calculations)
+	BMP280_SetStandby(BMP280_STBY_1s);		// Set normal mode inactive duration (standby time)
+	BMP280_SetFilter(BMP280_FILTER_OFF);	// Set IIR filter constant
+	BMP280_SetOSRST(BMP280_OSRS_T_x2);		// Set oversampling for temperature
+	BMP280_SetOSRSP(BMP280_OSRS_P_x1);		// Set oversampling for pressure
+	BMP280_SetMode(BMP280_MODE_NORMAL);		// Set normal mode (perpetual periodic conversion)
 }
 
 void ReadBaro(Barometer_t *tmpBaro){
@@ -713,7 +722,7 @@ void ReadBaro(Barometer_t *tmpBaro){
 
 
 	if(HAL_GetTick() - conversionTimer > 12){
-		BMP280_Read_UTP(&raw_temperature, &raw_preassure);
+		BMP280_Read_UTP(&raw_temperature, &raw_preassure);					// Read the raw data of the baro as often as possible, else the read value does not change much
 		conversionTimer = HAL_GetTick();
 	}
 
@@ -721,16 +730,16 @@ void ReadBaro(Barometer_t *tmpBaro){
 		double baroElapsedTime = (HAL_GetTick() - lastBaroRead) / 1000.0f;	// get exact time since last read in Seconds
 		lastBaroRead = HAL_GetTick();
 
-		tmpBaro->temperature = BMP280_CalcT(raw_temperature) / 100.0;
-		tmpBaro->preassure = BMP280_CalcP(raw_preassure) / 100000.0;
+		tmpBaro->temperature = BMP280_CalcT(raw_temperature) / 100.0;		// convert to correct number format (2510 -> 25.10)
+		tmpBaro->preassure = BMP280_CalcP(raw_preassure) / 100000.0;		// convert to correct number format (100663688 -> 100663.688) and from mPa to hPa
 
 		float r= tmpBaro->preassure / tmpBaro->preassureSealevel;
-		float newAltitude = (1.0 - pow(r,0.1902949f))*44330.77f;
+		float newAltitude = (1.0 - pow(r,0.1902949f))*44330.77f;			// Calculate an altitude from preassure
 
-		float altitudeDelta = tmpBaro->altitude - newAltitude;
-		tmpBaro->verticalSpeed = (altitudeDelta / baroElapsedTime);
+		float altitudeDelta = tmpBaro->altitude - newAltitude;				// Calculate an altitude delta since last measurement
+		tmpBaro->verticalSpeed = (altitudeDelta / baroElapsedTime);			// Calculate an vertical speed out of altiude delta and time
 
-		tmpBaro->altitude = newAltitude;
+		tmpBaro->altitude = newAltitude;									// Save the new altitude to use in next loop as old value
 	}
 }
 
@@ -740,6 +749,8 @@ void CalculateTone(float vSpeed, Beeper_t *tmpBeeper){
 	static uint32_t peep_start;
 	vSpeed = constrain(vSpeed, MIN_VARIO , MAX_VARIO);
 
+	// This is to only calculate (and apply) a new tone if the old tone is in its LOW state.. so the PWM is in the low phase.
+	// Need this to not hear any weired artefacts
 	if(oldVSpeed >= tmpBeeper->climb_threshold){
 		unsigned int peep_time = (unsigned int)mapfloat(oldVSpeed, tmpBeeper->climb_threshold, MAX_VARIO,
 						(float)tmpBeeper->min_peep_time_start, (float)tmpBeeper->min_peep_time_stop);
@@ -751,25 +762,25 @@ void CalculateTone(float vSpeed, Beeper_t *tmpBeeper){
 	}
 
 	peep_start = HAL_GetTick();
-	// Check if change in vertical speed
-	if(vSpeed > oldVSpeed-0.1 && vSpeed < oldVSpeed+0.1)
+
+	if(vSpeed > oldVSpeed-0.1 && vSpeed < oldVSpeed+0.1)	// Check if NO change in vertical speed
 		return;
 
-	oldVSpeed = vSpeed;
+	oldVSpeed = vSpeed;										// set oldVSpeed to the new vSpeed for next loop
 
 	if(vSpeed >= tmpBeeper->climb_threshold){
 		unsigned int freqency = mapfloat(vSpeed,0.0, MAX_VARIO, tmpBeeper->start_f_climb, tmpBeeper->stop_f_climb);
 		float peepsPS = mapfloat(vSpeed, 0.0, MAX_VARIO, tmpBeeper->climb_beeps_start,tmpBeeper->climb_beeps_stop);
-		applyF(freqency,peepsPS, tmpBeeper->volume);
+		ApplyF(freqency,peepsPS, tmpBeeper->volume);
 
 	}else if(vSpeed >= tmpBeeper->near_climb_threshold && vSpeed < tmpBeeper->climb_threshold && ENABLE_NEAR_CLIMB){
 		unsigned int freqency = 550;
-		applyF(freqency,0.25,tmpBeeper->volume);
+		ApplyF(freqency,0.25,tmpBeeper->volume);
 
 	}else if(vSpeed <= tmpBeeper->sink_threshold){
 		TIM6->CR1 &= 0xFE;	//Disable Timer
 		unsigned int freqency = mapfloat(vSpeed,0.0, MIN_VARIO, tmpBeeper->start_f_sink, tmpBeeper->stop_f_sink);
-		applyF(freqency,0.0,tmpBeeper->volume);
+		ApplyF(freqency,0.0,tmpBeeper->volume);
 
 	}else{	// stop peep
 		DisableF();
@@ -791,13 +802,13 @@ void CalculateTone(float vSpeed, Beeper_t *tmpBeeper){
  * TIM2 is for PWM, so tone pitch and volume
  * TIM6 is for beeping, so the slow second modulation of this tone
  */
-void applyF(unsigned int freq, float bps, uint8_t vol){
+void ApplyF(unsigned int freq, float bps, uint8_t vol){
 	/*
 	 * freq in Hz
 	 * bps in float beeps, per seconds
 	 * vol 1 - 10
 	 */
-	if(vol == 0){
+	if(vol == 0){						// With no volume there is no need to play any sound
 		DisableF();
 		return;
 	}
@@ -805,27 +816,40 @@ void applyF(unsigned int freq, float bps, uint8_t vol){
 	uint32_t Bperiod = 40000.0f/(bps * 2.0); 	// * 2.0
 	uint32_t volume = (float)period / mapfloat((float)vol, 1.0, 10.0, 1000.0, 1.1);	//new pulse width = volume (max 1/2 freq)
 
-	DisableF();
-	TIM2->ARR = period -1 ;
+	DisableF();							// Disable the sound, to not hear any weired sound while configer new sound
+	TIM2->ARR = period -1 ;				// Set Timer 2 to frequency we want to hear
 	if(TIM2->CNT >= TIM2->ARR)
 		TIM2->CNT = 0;
-	TIM2->CCR1 = volume;
-	if(bps > 0.001){
+	TIM2->CCR1 = volume;				// Set the Pulse width according the volume (PWM)
+	if(bps > 0.001){					// Only if there actually is "something"
 		TIM6->CNT = 0;
-		TIM6->ARR = Bperiod- 1;
-		//TIM6->CCR1 = Bperiod / 2;
-		TIM6->CR1 |= 0x01;	//Enable  Timer
+		TIM6->ARR = Bperiod- 1;			// Set Timer 6 to the slow beep freq. modulated to the high pitch of TIM2
+		TIM6->CR1 |= 0x01;				//Enable  Timer 6
 	}
-	TIM2->CR1 |= 0x01;	//Enable  Timer
-	peepState = 1;
+	TIM2->CR1 |= 0x01;					// Enable  Timer 2
+	peepState = 1;						// write, that Buzzer is on
 }
 
-extern inline void DisableF(void){
+extern inline void DisableF(void){		// Turn off both timers and make them ready for a smooth restart
 	if(TIM2->CNT < TIM2->ARR){
-		TIM2->CNT = TIM2->ARR + 1;
+		TIM2->CNT = TIM2->ARR + 1;		// Set Timer 2 actual counter to one above the auto-reload-level
 	}
-	TIM6->CR1 &= 0xFE;	//Disable Timer
-	TIM2->CR1 &= 0xFE;	//Disable Timer
+	TIM6->CR1 &= 0xFE;					// Disable Timer
+	TIM2->CR1 &= 0xFE;					// Disable Timer
+}
+
+/*
+ * TODO
+ */
+void InitLcd(){
+
+}
+
+/*
+ * TODO
+ */
+void UpdateLcd(Lcd_t *tmpLcd){
+
 }
 
 /* USER CODE END 4 */

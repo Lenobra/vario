@@ -38,7 +38,8 @@
 #define MAX_VARIO          		 		10.0   		// m/s
 #define MIN_VARIO           			(-10.0)   	// m/s
 
-#define MAX_VOLUME						5			// 1 - 10
+#define VOLUME							5			// 1 - 10
+#define MAX_VOLUME						10			//
 
 // ADC settings
 #define ADC_MULTI						0.9357		// (Ref/ADCres)=3345/4095 =0.81685
