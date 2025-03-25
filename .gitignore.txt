@@ -1,1 +1,1 @@
-vario-software_v2/Debug
+vario-software/Debug

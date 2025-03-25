@@ -11,14 +11,14 @@
 #define BUILT_DATE				__DATE__	// Store the built date
 #define BUILT_TIME				__TIME__	// Store the built time
 
-//define TESTMODE							// uncomment this line if normal use
+#define TESTMODE							// uncomment this line if normal use
 
 // A common place for all settings
 // Blink
 #define BLINK_TIME						500			// ms
 
 // LCD
-#define SCREEN_UPDATE_TIME				500			// ms
+#define SCREEN_UPDATE_TIME				1000		// ms
 
 // Vario settings
 #define CLIMB_THRESHOLD					(0.3)   	// m/s

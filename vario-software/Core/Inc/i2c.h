@@ -59,7 +59,8 @@
 
 // Definitions for compatibility with old code using this library
 #define I2C_GENSTOP_YES        I2C_TX_STOP
-#define I2C_GENSTOP_NO         I2C_TX_NOSTOP
+//#define I2C_GENSTOP_NO         I2C_TX_NOSTOP
+#define I2C_GENSTOP_NO         I2C_TX_STOP
 
 
 // Result of I2C functions

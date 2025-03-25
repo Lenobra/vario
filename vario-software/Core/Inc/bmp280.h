@@ -4,6 +4,7 @@
 
 #include "i2c.h"
 #include "stm32l4xx_hal.h"
+#include "Settings.h"
 
 
 // Method for calculating compensated values
@@ -31,8 +32,8 @@
 #define BMP280_ADDR_V                   ((uint8_t)0x77) // SDO pin tied to VDDIO
 
 // Device address, select one of BMP280_ADDR_XXX values above according to the chip wiring
-#define BMP280_ADDR                     (BMP280_ADDR_G << 1)
-
+//#define BMP280_ADDR                     (BMP280_ADDR_G << 1)
+#define BMP280_ADDR                     BMP280_ADDRESS
 
 // BMP280 register bits
 

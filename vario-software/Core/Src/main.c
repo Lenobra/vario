@@ -731,7 +731,7 @@ void InitBaro(){
 
 	BMP280_Read_Calibration();				// Read internal calibaration data and save them locally (needed for further calculations)
 	BMP280_SetStandby(BMP280_STBY_1s);		// Set normal mode inactive duration (standby time)
-	BMP280_SetFilter(BMP280_FILTER_OFF);	// Set IIR filter constant
+	BMP280_SetFilter(BMP280_FILTER_2);		// Set IIR filter constant
 	BMP280_SetOSRST(BMP280_OSRS_T_x2);		// Set oversampling for temperature
 	BMP280_SetOSRSP(BMP280_OSRS_P_x1);		// Set oversampling for pressure
 	BMP280_SetMode(BMP280_MODE_NORMAL);		// Set normal mode (perpetual periodic conversion)
@@ -880,6 +880,7 @@ void UpdateLcd(Lcd_t *tmpLcd){
 	//HD44780_PrintStr(line1);
 	//HD44780_SetCursor(0,1);
 	//HD44780_PrintStr("Altitude:" + sprintf(tmp->));
+	/*
 	HD44780_Init(2);
 	HD44780_Clear();
 	HD44780_Backlight();
@@ -887,6 +888,7 @@ void UpdateLcd(Lcd_t *tmpLcd){
 	HD44780_PrintStr("Welcome To");
 	HD44780_SetCursor(0,1);
 	HD44780_PrintStr("CircuitGator HQ");
+	*/
 }
 
 /* USER CODE END 4 */
