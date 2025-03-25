@@ -141,7 +141,7 @@ void CalcBatteryPercent(Battery_t*);
 void InitBaro(void);
 void ReadBaro(Barometer_t*);
 void CalculateTone(float, Beeper_t*);
-void applyF(unsigned int, float, uint8_t);
+void ApplyF(unsigned int, float, uint8_t);
 extern inline void DisableF(void);
 
 void InitLcd(void);
@@ -215,8 +215,6 @@ int main(void)
   HAL_Delay(1);
   DisableF();									// Timers started already, stop them for no annoiing Buzzer sound
 
-  double userValue = 5.0;						// Only for test purposes
-
   printf("***********LOOP START***********\n");
   /* USER CODE END 2 */
 
@@ -231,7 +229,12 @@ int main(void)
 	  // Let green LED blink
 	  static uint32_t lastBlink;
 	  static uint8_t toggle;
+#ifndef TESTMODE
 	  if(HAL_GetTick() - lastBlink >= BLINK_TIME){						// Check if enough time passed and this part should now be executed
+#else
+	  float analogBlinkTime = mapfloat(Battery.percent, 0, 100, 0, 2000);
+	  if(HAL_GetTick() - lastBlink >= analogBlinkTime){					// Match the blink time according the analog signal of A0
+#endif
 		  lastBlink = HAL_GetTick();									// Reset timer variable
 		  toggle = !toggle;
 		  HAL_GPIO_WritePin(LED_GREEN_GPIO_Port, LED_GREEN_Pin, toggle);
@@ -248,9 +251,14 @@ int main(void)
 	  // Read Baro
 	  ReadBaro(&Baro);													// Read the I2C Barometer data, Preassure and Temperature
 
+
+#ifndef TESTMODE
 	  // Generate a tone out of vertical speed
 	  CalculateTone(Baro.verticalSpeed, &Beeper);
-	  //CalculateTone(userValue, &Beeper);								// Test: generate tone for 5 m/s climb
+#else
+	  float analogValue = mapfloat(Battery.percent, 0, 100, -10.0, 10.0);
+	  CalculateTone(analogValue, &Beeper);								// Test: generate tone from analog signal (A0)
+#endif
 
 	  // LCD Code....
 	  static uint32_t lastScreenUpdate;
@@ -771,16 +779,16 @@ void CalculateTone(float vSpeed, Beeper_t *tmpBeeper){
 	if(vSpeed >= tmpBeeper->climb_threshold){
 		unsigned int freqency = mapfloat(vSpeed,0.0, MAX_VARIO, tmpBeeper->start_f_climb, tmpBeeper->stop_f_climb);
 		float peepsPS = mapfloat(vSpeed, 0.0, MAX_VARIO, tmpBeeper->climb_beeps_start,tmpBeeper->climb_beeps_stop);
-		ApplyF(freqency,peepsPS, tmpBeeper->volume);
+		ApplyF(freqency, peepsPS, tmpBeeper->volume);
 
 	}else if(vSpeed >= tmpBeeper->near_climb_threshold && vSpeed < tmpBeeper->climb_threshold && ENABLE_NEAR_CLIMB){
 		unsigned int freqency = 550;
-		ApplyF(freqency,0.25,tmpBeeper->volume);
+		ApplyF(freqency, 0.25, tmpBeeper->volume);
 
 	}else if(vSpeed <= tmpBeeper->sink_threshold){
 		TIM6->CR1 &= 0xFE;	//Disable Timer
 		unsigned int freqency = mapfloat(vSpeed,0.0, MIN_VARIO, tmpBeeper->start_f_sink, tmpBeeper->stop_f_sink);
-		ApplyF(freqency,0.0,tmpBeeper->volume);
+		ApplyF(freqency, 0.0, tmpBeeper->volume);
 
 	}else{	// stop peep
 		DisableF();

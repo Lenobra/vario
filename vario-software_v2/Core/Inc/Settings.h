@@ -11,6 +11,8 @@
 #define BUILT_DATE				__DATE__	// Store the built date
 #define BUILT_TIME				__TIME__	// Store the built time
 
+#define TESTMODE							// uncomment this line if normal use
+
 // A common place for all settings
 // Blink
 #define BLINK_TIME						500			// ms
@@ -42,18 +44,29 @@
 #define MAX_VOLUME						10			//
 
 // ADC settings
-#define ADC_MULTI						0.9357		// (Ref/ADCres)=3345/4095 =0.81685
-#define AREF_MILLI    					1100		// Ref Voltage
-#define RES_RATIO     					5.846599	// Ratio of the Voltage devider
+#define AREF_MILLI    					3300		// Ref Voltage
+#define ADC_BITS						4095		// number of bits from the adc conversion
+#define ADC_MULTI						((float)AREF_MILLI / (float)ADC_BITS)		// (Ref/ADCres)=3345/4095 =0.81685
+#define RES_RATIO     					1.0			// Ratio of the Voltage devider
 
 // Battery settings
-#define BATTERY_UPDATE_TIME				1000		// ms
+#define BATTERY_UPDATE_TIME				100 		// ms
 
+/*
+// 1s Lipo Battery
 #define BAT_0							3080		// Voltage @ 0%
 #define BAT_5							3600		// Voltage @ 5%
 #define BAT_20							3740		// Voltage @ 20%
 #define BAT_75							3990		// Voltage @ 75%
 #define BAT_100							4100		// Voltage @ 100%
+*/
+
+// linear poti
+#define BAT_0							0			// Voltage @ 0%
+#define BAT_5							165			// Voltage @ 5%
+#define BAT_20							660			// Voltage @ 20%
+#define BAT_75							2475		// Voltage @ 75%
+#define BAT_100							3300		// Voltage @ 100%
 
 // Barometer settings
 #define PRASSURE_AT_SEALEVEL			1013.25f	// hPa
