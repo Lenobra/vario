@@ -60,8 +60,8 @@ all: main-build
 main-build: vario-software_v2.elf secondary-outputs
 
 # Tool invocations
-vario-software_v2.elf vario-software_v2.map: $(OBJS) $(USER_OBJS) C:\Users\basti\OneDrive\Dokumente\Studium\3-Sem\uC\vario\vario-software_v2\STM32L476RGTX_FLASH.ld makefile objects.list $(OPTIONAL_TOOL_DEPS)
-	arm-none-eabi-gcc -o "vario-software_v2.elf" @"objects.list" $(USER_OBJS) $(LIBS) -mcpu=cortex-m4 -T"C:\Users\basti\OneDrive\Dokumente\Studium\3-Sem\uC\vario\vario-software_v2\STM32L476RGTX_FLASH.ld" --specs=nosys.specs -Wl,-Map="vario-software_v2.map" -Wl,--gc-sections -static --specs=nano.specs -mfpu=fpv4-sp-d16 -mfloat-abi=hard -mthumb -Wl,--start-group -lc -lm -Wl,--end-group
+vario-software_v2.elf vario-software_v2.map: $(OBJS) $(USER_OBJS) /home/leonard/Documents/projects/vario/vario-software_v2/STM32L476RGTX_FLASH.ld makefile objects.list $(OPTIONAL_TOOL_DEPS)
+	arm-none-eabi-gcc -o "vario-software_v2.elf" @"objects.list" $(USER_OBJS) $(LIBS) -mcpu=cortex-m4 -T"/home/leonard/Documents/projects/vario/vario-software_v2/STM32L476RGTX_FLASH.ld" --specs=nosys.specs -Wl,-Map="vario-software_v2.map" -Wl,--gc-sections -static --specs=nano.specs -mfpu=fpv4-sp-d16 -mfloat-abi=hard -mthumb -Wl,--start-group -lc -lm -Wl,--end-group
 	@echo 'Finished building target: $@'
 	@echo ' '
 
