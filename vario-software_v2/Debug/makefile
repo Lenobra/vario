@@ -34,34 +34,34 @@ $(wildcard ../makefile.init) \
 $(wildcard ../makefile.targets) \
 
 
-BUILD_ARTIFACT_NAME := vario-software_v2
+BUILD_ARTIFACT_NAME := vario-software
 BUILD_ARTIFACT_EXTENSION := elf
 BUILD_ARTIFACT_PREFIX :=
 BUILD_ARTIFACT := $(BUILD_ARTIFACT_PREFIX)$(BUILD_ARTIFACT_NAME)$(if $(BUILD_ARTIFACT_EXTENSION),.$(BUILD_ARTIFACT_EXTENSION),)
 
 # Add inputs and outputs from these tool invocations to the build variables 
 EXECUTABLES += \
-vario-software_v2.elf \
+vario-software.elf \
 
 MAP_FILES += \
-vario-software_v2.map \
+vario-software.map \
 
 SIZE_OUTPUT += \
 default.size.stdout \
 
 OBJDUMP_LIST += \
-vario-software_v2.list \
+vario-software.list \
 
 
 # All Target
 all: main-build
 
 # Main-build Target
-main-build: vario-software_v2.elf secondary-outputs
+main-build: vario-software.elf secondary-outputs
 
 # Tool invocations
-vario-software_v2.elf vario-software_v2.map: $(OBJS) $(USER_OBJS) /home/leonard/Documents/projects/vario/vario-software_v2/STM32L476RGTX_FLASH.ld makefile objects.list $(OPTIONAL_TOOL_DEPS)
-	arm-none-eabi-gcc -o "vario-software_v2.elf" @"objects.list" $(USER_OBJS) $(LIBS) -mcpu=cortex-m4 -T"/home/leonard/Documents/projects/vario/vario-software_v2/STM32L476RGTX_FLASH.ld" --specs=nosys.specs -Wl,-Map="vario-software_v2.map" -Wl,--gc-sections -static --specs=nano.specs -mfpu=fpv4-sp-d16 -mfloat-abi=hard -mthumb -Wl,--start-group -lc -lm -Wl,--end-group
+vario-software.elf vario-software.map: $(OBJS) $(USER_OBJS) /home/leonard/Documents/projects/vario/vario-software_v2/STM32L476RGTX_FLASH.ld makefile objects.list $(OPTIONAL_TOOL_DEPS)
+	arm-none-eabi-gcc -o "vario-software.elf" @"objects.list" $(USER_OBJS) $(LIBS) -mcpu=cortex-m4 -T"/home/leonard/Documents/projects/vario/vario-software_v2/STM32L476RGTX_FLASH.ld" --specs=nosys.specs -Wl,-Map="vario-software.map" -Wl,--gc-sections -static --specs=nano.specs -mfpu=fpv4-sp-d16 -mfloat-abi=hard -mthumb -Wl,--start-group -lc -lm -Wl,--end-group
 	@echo 'Finished building target: $@'
 	@echo ' '
 
@@ -70,14 +70,14 @@ default.size.stdout: $(EXECUTABLES) makefile objects.list $(OPTIONAL_TOOL_DEPS)
 	@echo 'Finished building: $@'
 	@echo ' '
 
-vario-software_v2.list: $(EXECUTABLES) makefile objects.list $(OPTIONAL_TOOL_DEPS)
-	arm-none-eabi-objdump -h -S $(EXECUTABLES) > "vario-software_v2.list"
+vario-software.list: $(EXECUTABLES) makefile objects.list $(OPTIONAL_TOOL_DEPS)
+	arm-none-eabi-objdump -h -S $(EXECUTABLES) > "vario-software.list"
 	@echo 'Finished building: $@'
 	@echo ' '
 
 # Other Targets
 clean:
-	-$(RM) default.size.stdout vario-software_v2.elf vario-software_v2.list vario-software_v2.map
+	-$(RM) default.size.stdout vario-software.elf vario-software.list vario-software.map
 	-@echo ' '
 
 secondary-outputs: $(SIZE_OUTPUT) $(OBJDUMP_LIST)

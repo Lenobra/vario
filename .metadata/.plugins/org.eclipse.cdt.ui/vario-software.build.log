@@ -1,31 +1,10 @@
-12:23:24 **** Incremental Build of configuration Debug for project vario-software ****
+21:17:32 **** Incremental Build of configuration Debug for project vario-software ****
 make -j20 all 
-arm-none-eabi-gcc "../Core/Src/main.c" -mcpu=cortex-m4 -std=gnu11 -g3 -DDEBUG -DUSE_HAL_DRIVER -DSTM32L476xx -c -I../Core/Inc -I../Drivers/STM32L4xx_HAL_Driver/Inc -I../Drivers/STM32L4xx_HAL_Driver/Inc/Legacy -I../Drivers/CMSIS/Device/ST/STM32L4xx/Include -I../Drivers/CMSIS/Include -O0 -ffunction-sections -fdata-sections -Wall -fstack-usage -fcyclomatic-complexity -MMD -MP -MF"Core/Src/main.d" -MT"Core/Src/main.o" --specs=nano.specs -mfpu=fpv4-sp-d16 -mfloat-abi=hard -mthumb -o "Core/Src/main.o"
-../Core/Src/main.c:45:1: error: unknown type name 'UART_HandleTypeDef'; did you mean 'EXTI_HandleTypeDef'?
-   45 | UART_HandleTypeDef huart2;
-      | ^~~~~~~~~~~~~~~~~~
-      | EXTI_HandleTypeDef
-../Core/Src/main.c: In function 'main':
-../Core/Src/main.c:100:31: error: 'LD2_GPIO_Port' undeclared (first use in this function)
-  100 |           HAL_GPIO_TogglePin (LD2_GPIO_Port, LD2_P);
-      |                               ^~~~~~~~~~~~~
-../Core/Src/main.c:100:31: note: each undeclared identifier is reported only once for each function it appears in
-../Core/Src/main.c:100:46: error: 'LD2_P' undeclared (first use in this function)
-  100 |           HAL_GPIO_TogglePin (LD2_GPIO_Port, LD2_P);
-      |                                              ^~~~~
-../Core/Src/main.c:101:11: warning: implicit declaration of function 'HAL_DELAY'; did you mean 'HAL_Delay'? [-Wimplicit-function-declaration]
-  101 |           HAL_DELAY (1000);
-      |           ^~~~~~~~~
-      |           HAL_Delay
-../Core/Src/main.c: At top level:
-../Core/Src/main.c:51:13: warning: 'MX_GPIO_Init' used but never defined
-   51 | static void MX_GPIO_Init(void);
-      |             ^~~~~~~~~~~~
-../Core/Src/main.c:52:13: warning: 'MX_USART2_UART_Init' used but never defined
-   52 | static void MX_USART2_UART_Init(void);
-      |             ^~~~~~~~~~~~~~~~~~~
-make: *** [Core/Src/subdir.mk:34: Core/Src/main.o] Error 1
-"make -j20 all" terminated with exit code 2. Build might be incomplete.
+arm-none-eabi-size  vario-software.elf 
+   text	   data	    bss	    dec	    hex	filename
+  44676	    120	   2584	  47380	   b914	vario-software.elf
+Finished building: default.size.stdout
+ 
 
-12:23:25 Build Failed. 4 errors, 3 warnings. (took 239ms)
+21:17:32 Build Finished. 0 errors, 0 warnings. (took 248ms)
 

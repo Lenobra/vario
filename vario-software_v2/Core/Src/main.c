@@ -62,7 +62,6 @@ typedef struct{
 
 typedef struct{
 	uint8_t 		temperature;
-	uint8_t 		speed;
 	uint8_t 		backlight;
 	uint8_t			batteryPercent;
 	double	 		altitude;
@@ -206,7 +205,7 @@ int main(void)
   MX_TIM6_Init();
   /* USER CODE BEGIN 2 */
 
-  InitBaro();									// Initialize the barometer to set all the oversampling-rates and filters right values
+  InitBaro();									// Initialize the barometer to set all the oversampling-rates and filters right values}
   InitLcd();									// Initialize the Liquid crystal Display
 
   //Start the timers for beeping
@@ -216,6 +215,7 @@ int main(void)
   DisableF();									// Timers started already, stop them for no annoiing Buzzer sound
 
   printf("***********LOOP START***********\n");
+
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -263,6 +263,11 @@ int main(void)
 	  // LCD Code....
 	  static uint32_t lastScreenUpdate;
 	  if(HAL_GetTick() - lastScreenUpdate >= SCREEN_UPDATE_TIME){		// Check if enough time passed and this part should now be executed
+		  Lcd.altitude = Baro.altitude;
+		  Lcd.temperature = Baro.temperature;
+		  Lcd.verticalSpeed = Baro.verticalSpeed;
+		  Lcd.preassure = Baro.preassure;
+		  Lcd.batteryPercent = Battery.percent;
 		  UpdateLcd(&Lcd);												// Update all the elements of the display
 		  lastScreenUpdate = HAL_GetTick();
 	  }
@@ -662,7 +667,17 @@ void CalcBatteryPercent(Battery_t *tmpBat){
 	}
 	if(tmpBat->voltage > tmpBat->voltAt100Percent){
 		tmpBat->percent = 100;
-		return;
+		return;  HD44780_Init(2);
+		  HD44780_Clear();
+		  HD44780_SetCursor(0,0);
+		  HD44780_PrintStr("Thanks Bastian!");
+		  int x;
+		  for(int x=0; x<100; x=x+1)
+		    {
+		  	HD44780_ScrollDisplayLeft();  //Scrolling left
+		  	//HD44780_ScrollDisplayRight(); for scrolling right
+		  	HAL_Delay(500);
+		    }
 	}
 
 	if(tmpBat->voltage >= tmpBat->voltAt0Percent && tmpBat->voltage < tmpBat->voltAt5Percent){
@@ -850,14 +865,28 @@ extern inline void DisableF(void){		// Turn off both timers and make them ready 
  * TODO
  */
 void InitLcd(){
-
+	HD44780_Init(2);
 }
 
 /*
  * TODO
  */
 void UpdateLcd(Lcd_t *tmpLcd){
-
+	//HD44780_Clear();
+	//HD44780_Backlight();
+	//HD44780_SetCursor(0,0);
+	//char line1 [16];
+	//sprintf(line1, "%.1f", tmpLcd->altitude);
+	//HD44780_PrintStr(line1);
+	//HD44780_SetCursor(0,1);
+	//HD44780_PrintStr("Altitude:" + sprintf(tmp->));
+	HD44780_Init(2);
+	HD44780_Clear();
+	HD44780_Backlight();
+	HD44780_SetCursor(0,0);
+	HD44780_PrintStr("Welcome To");
+	HD44780_SetCursor(0,1);
+	HD44780_PrintStr("CircuitGator HQ");
 }
 
 /* USER CODE END 4 */

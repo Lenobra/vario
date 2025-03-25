@@ -8,6 +8,10 @@
 		<item key="SmartImportRootWizardPage.STORE_CLOSE_IMPORTED" value="false"/>
 		<item key="SmartImportRootWizardPage.STORE_NESTED_PROJECTS" value="true"/>
 		<item key="SmartImportRootWizardPage.STORE_CONFIGURE_NATURES" value="true"/>
+		<list key="org.eclipse.ui.internal.wizards.datatransfer.SmartImportRootWizardPage.knownSources">
+			<item value="/home/leonard/STM32Cube/Repository/STM32Cube_FW_L4_V1.18.1/Projects/NUCLEO-L476RG/Examples_LL/GPIO/GPIO_InfiniteLedToggling"/>
+			<item value="/home/leonard/Documents/projects/vario/vario-software_v2"/>
+		</list>
 		<section name="SmartImportWizard.dialogBounds">
 			<item key="DIALOG_X_ORIGIN" value="503"/>
 			<item key="DIALOG_Y_ORIGIN" value="67"/>
