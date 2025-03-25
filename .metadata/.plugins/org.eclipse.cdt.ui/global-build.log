@@ -1,44 +1,7 @@
-21:17:27 **** Incremental Build of configuration Debug for project vario-software ****
+21:37:13 **** Build of configuration Debug for project I2CLCD ****
 make -j20 all 
-arm-none-eabi-gcc "../Core/Src/main.c" -mcpu=cortex-m4 -std=gnu11 -g3 -DDEBUG -DUSE_HAL_DRIVER -DSTM32L476xx -c -I../Core/Inc -I../Drivers/STM32L4xx_HAL_Driver/Inc -I../Drivers/STM32L4xx_HAL_Driver/Inc/Legacy -I../Drivers/CMSIS/Device/ST/STM32L4xx/Include -I../Drivers/CMSIS/Include -O0 -ffunction-sections -fdata-sections -Wall -fstack-usage -fcyclomatic-complexity -MMD -MP -MF"Core/Src/main.d" -MT"Core/Src/main.o" --specs=nano.specs -mfpu=fpv4-sp-d16 -mfloat-abi=hard -mthumb -o "Core/Src/main.o"
-../Core/Src/main.c: In function 'main':
-../Core/Src/main.c:209:3: warning: implicit declaration of function 'HD44780_Init' [-Wimplicit-function-declaration]
-  209 |   HD44780_Init(2);
-      |   ^~~~~~~~~~~~
-../Core/Src/main.c:210:3: warning: implicit declaration of function 'HD44780_Clear' [-Wimplicit-function-declaration]
-  210 |   HD44780_Clear();
-      |   ^~~~~~~~~~~~~
-../Core/Src/main.c:211:3: warning: implicit declaration of function 'HD44780_SetCursor' [-Wimplicit-function-declaration]
-  211 |   HD44780_SetCursor(0,0);
-      |   ^~~~~~~~~~~~~~~~~
-../Core/Src/main.c:212:3: warning: implicit declaration of function 'HD44780_PrintStr' [-Wimplicit-function-declaration]
-  212 |   HD44780_PrintStr("Thanks Bastian!");
-      |   ^~~~~~~~~~~~~~~~
-../Core/Src/main.c:216:9: warning: implicit declaration of function 'HD44780_ScrollDisplayLeft' [-Wimplicit-function-declaration]
-  216 |         HD44780_ScrollDisplayLeft();  //Scrolling left
-      |         ^~~~~~~~~~~~~~~~~~~~~~~~~
-../Core/Src/main.c:213:7: warning: unused variable 'x' [-Wunused-variable]
-  213 |   int x;
-      |       ^
-../Core/Src/main.c: In function 'UpdateLcd':
-../Core/Src/main.c:886:9: warning: implicit declaration of function 'HD44780_Backlight' [-Wimplicit-function-declaration]
-  886 |         HD44780_Backlight();
-      |         ^~~~~~~~~~~~~~~~~
-arm-none-eabi-gcc -o "vario-software.elf" @"objects.list"   -mcpu=cortex-m4 -T"/home/leonard/Documents/projects/vario/vario-software_v2/STM32L476RGTX_FLASH.ld" --specs=nosys.specs -Wl,-Map="vario-software.map" -Wl,--gc-sections -static --specs=nano.specs -mfpu=fpv4-sp-d16 -mfloat-abi=hard -mthumb -Wl,--start-group -lc -lm -Wl,--end-group
-Finished building target: vario-software.elf
- 
-arm-none-eabi-size  vario-software.elf 
-arm-none-eabi-objdump -h -S vario-software.elf  > "vario-software.list"
+arm-none-eabi-size  I2CLCD.elf 
    text	   data	    bss	    dec	    hex	filename
-  44676	    120	   2584	  47380	   b914	vario-software.elf
-Finished building: default.size.stdout
- 
-Finished building: vario-software.list
- 
-21:17:32 **** Incremental Build of configuration Debug for project vario-software ****
-make -j20 all 
-arm-none-eabi-size  vario-software.elf 
-   text	   data	    bss	    dec	    hex	filename
-  44676	    120	   2584	  47380	   b914	vario-software.elf
+  16136	     28	   1796	  17960	   4628	I2CLCD.elf
 Finished building: default.size.stdout
  

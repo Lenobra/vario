@@ -9,14 +9,15 @@
 		<item key="SmartImportRootWizardPage.STORE_NESTED_PROJECTS" value="true"/>
 		<item key="SmartImportRootWizardPage.STORE_CONFIGURE_NATURES" value="true"/>
 		<list key="org.eclipse.ui.internal.wizards.datatransfer.SmartImportRootWizardPage.knownSources">
+			<item value="/home/leonard/Documents/projects/vario/vario-software"/>
 			<item value="/home/leonard/STM32Cube/Repository/STM32Cube_FW_L4_V1.18.1/Projects/NUCLEO-L476RG/Examples_LL/GPIO/GPIO_InfiniteLedToggling"/>
 			<item value="/home/leonard/Documents/projects/vario/vario-software_v2"/>
 		</list>
 		<section name="SmartImportWizard.dialogBounds">
-			<item key="DIALOG_X_ORIGIN" value="503"/>
-			<item key="DIALOG_Y_ORIGIN" value="67"/>
-			<item key="DIALOG_WIDTH" value="888"/>
-			<item key="DIALOG_HEIGHT" value="707"/>
+			<item key="DIALOG_X_ORIGIN" value="-768"/>
+			<item key="DIALOG_Y_ORIGIN" value="287"/>
+			<item key="DIALOG_WIDTH" value="988"/>
+			<item key="DIALOG_HEIGHT" value="755"/>
 			<item key="DIALOG_FONT_NAME" value="1|Noto Sans|10.0|0|GTK|1|"/>
 		</section>
 	</section>
