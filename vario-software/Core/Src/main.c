@@ -667,17 +667,7 @@ void CalcBatteryPercent(Battery_t *tmpBat){
 	}
 	if(tmpBat->voltage > tmpBat->voltAt100Percent){
 		tmpBat->percent = 100;
-		return;  HD44780_Init(2);
-		  HD44780_Clear();
-		  HD44780_SetCursor(0,0);
-		  HD44780_PrintStr("Thanks Bastian!");
-		  int x;
-		  for(int x=0; x<100; x=x+1)
-		    {
-		  	HD44780_ScrollDisplayLeft();  //Scrolling left
-		  	//HD44780_ScrollDisplayRight(); for scrolling right
-		  	HAL_Delay(500);
-		    }
+		return;
 	}
 
 	if(tmpBat->voltage >= tmpBat->voltAt0Percent && tmpBat->voltage < tmpBat->voltAt5Percent){
@@ -872,23 +862,44 @@ void InitLcd(){
  * TODO
  */
 void UpdateLcd(Lcd_t *tmpLcd){
-	//HD44780_Clear();
-	//HD44780_Backlight();
-	//HD44780_SetCursor(0,0);
-	//char line1 [16];
-	//sprintf(line1, "%.1f", tmpLcd->altitude);
-	//HD44780_PrintStr(line1);
-	//HD44780_SetCursor(0,1);
-	//HD44780_PrintStr("Altitude:" + sprintf(tmp->));
-	/*
-	HD44780_Init(2);
+	uint8_t battery[8] = {
+	    0b00111,
+	    0b01110,
+	    0b01100,
+	    0b11111,
+	    0b00011,
+	    0b00110,
+	    0b00100,
+	    0b01000
+	};
+	uint8_t verticalArrow[8] = {
+	    0b00100,
+	    0b01110,
+	    0b11111,
+	    0b00100,
+	    0b00100,
+	    0b00100,
+	    0b00100,
+	    0b00100
+	};
 	HD44780_Clear();
+	HD44780_CreateSpecialChar(0, battery);
+	HD44780_CreateSpecialChar(1, verticalArrow);
 	HD44780_Backlight();
 	HD44780_SetCursor(0,0);
-	HD44780_PrintStr("Welcome To");
+
+	char line1a[11];
+	sprintf(line1a, "ALT:%.1fm ", tmpLcd->altitude);
+	HD44780_PrintStr(line1a);
+	HD44780_PrintSpecialChar(0);
+	char line1b[4];
+	sprintf(line1b, ":%d%%", tmpLcd->batteryPercent);
+	HD44780_PrintStr(line1b);
 	HD44780_SetCursor(0,1);
-	HD44780_PrintStr("CircuitGator HQ");
-	*/
+	char line2[15];
+	sprintf(line2, "-speed: %.1fm/s", tmpLcd->verticalSpeed);
+	HD44780_PrintSpecialChar(1);
+	HD44780_PrintStr(line2);
 }
 
 /* USER CODE END 4 */

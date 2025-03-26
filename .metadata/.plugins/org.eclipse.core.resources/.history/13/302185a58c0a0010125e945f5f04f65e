@@ -1,0 +1,909 @@
+/* USER CODE BEGIN Header */
+/**
+  ******************************************************************************
+  * @file           : main.c
+  * @brief          : Main program body
+  ******************************************************************************
+  * @attention
+  *
+  * Copyright (c) 2025 STMicroelectronics.
+  * All rights reserved.
+  *
+  * This software is licensed under terms that can be found in the LICENSE file
+  * in the root directory of this software component.
+  * If no LICENSE file comes with this software, it is provided AS-IS.
+  *
+  ******************************************************************************
+  */
+/* USER CODE END Header */
+/* Includes ------------------------------------------------------------------*/
+#include "main.h"
+
+/* Private includes ----------------------------------------------------------*/
+/* USER CODE BEGIN Includes */
+
+#include <stdio.h>
+#include "Settings.h"
+#include "bmp280.h"
+#include <math.h>
+
+/* USER CODE END Includes */
+
+/* Private typedef -----------------------------------------------------------*/
+/* USER CODE BEGIN PTD */
+
+volatile uint8_t peepState = 0;				// needs to be volatile, because its needed in interrups
+
+typedef struct{
+	float			climb_threshold;
+	float			near_climb_threshold;
+	float			sink_threshold;
+	float			climb_beeps_start;
+	float			climb_beeps_stop;
+
+	unsigned int 	start_f_climb;
+	unsigned int 	stop_f_climb;
+	unsigned int 	start_f_sink;
+	unsigned int 	stop_f_sink;
+	unsigned int 	min_peep_time_start;
+	unsigned int 	min_peep_time_stop;
+
+	uint8_t			volume;
+}Beeper_t;
+
+typedef struct{
+	float			preassure;
+	float			altitude;
+	float			temperature;
+	float			verticalSpeed;
+
+	float			preassureSealevel;
+}Barometer_t;
+
+typedef struct{
+	uint8_t 		temperature;
+	uint8_t 		backlight;
+	uint8_t			batteryPercent;
+	double	 		altitude;
+	double			preassure;
+	double	 		verticalSpeed;
+}Lcd_t;
+
+typedef struct{
+	char 			Name[20];
+	char 			ID[10];
+}PilotData_t;
+
+typedef struct{
+	uint32_t		voltage;
+	uint8_t			percent;
+
+	uint32_t		voltAt0Percent;
+	uint32_t		voltAt5Percent;
+	uint32_t		voltAt20Percent;
+	uint32_t		voltAt75Percent;
+	uint32_t		voltAt100Percent;
+}Battery_t;
+
+
+
+/* USER CODE END PTD */
+
+/* Private define ------------------------------------------------------------*/
+/* USER CODE BEGIN PD */
+
+/* USER CODE END PD */
+
+/* Private macro -------------------------------------------------------------*/
+/* USER CODE BEGIN PM */
+
+/* USER CODE END PM */
+
+/* Private variables ---------------------------------------------------------*/
+ADC_HandleTypeDef hadc1;
+
+I2C_HandleTypeDef hi2c1;
+
+TIM_HandleTypeDef htim2;
+TIM_HandleTypeDef htim6;
+
+UART_HandleTypeDef huart2;
+
+/* USER CODE BEGIN PV */
+
+Beeper_t Beeper;
+Barometer_t Baro;
+Lcd_t Lcd;
+PilotData_t Pilot;
+Battery_t Battery;
+
+/* USER CODE END PV */
+
+/* Private function prototypes -----------------------------------------------*/
+void SystemClock_Config(void);
+static void MX_GPIO_Init(void);
+static void MX_USART2_UART_Init(void);
+static void MX_ADC1_Init(void);
+static void MX_I2C1_Init(void);
+static void MX_TIM2_Init(void);
+static void MX_TIM6_Init(void);
+/* USER CODE BEGIN PFP */
+
+float constrain(float, float, float);					// custom math function, as in Arudino IDE
+float mapfloat(float, float, float, float, float);		// custom math function, as in Arudino IDE
+
+extern inline void PeepTimCallback(void);
+
+void LoadSettings(void);
+void ReadVoltage(Battery_t*);
+void CalcBatteryPercent(Battery_t*);
+void InitBaro(void);
+void ReadBaro(Barometer_t*);
+void CalculateTone(float, Beeper_t*);
+void ApplyF(unsigned int, float, uint8_t);
+extern inline void DisableF(void);
+
+void InitLcd(void);
+void UpdateLcd(Lcd_t*);
+
+/* USER CODE END PFP */
+
+/* Private user code ---------------------------------------------------------*/
+/* USER CODE BEGIN 0 */
+
+//Called by TIM6_DAC_IRQHandler
+extern inline void PeepTimCallback(void) {		// This function needs to be inline, because its called very often by a timer iterrupt. To not waste time, put this fuction right where the IRQ stepin is
+	if (peepState == 1) {						// Depending if the Buzzer was on bevor
+		TIM2->CR1 &= 0xFE;						// Disable Timer 2
+		peepState = 0;
+	} else {
+		TIM2->CR1 |= 0x01;						// Enable  Timer 2
+		peepState = 1;
+	}
+}
+
+/* USER CODE END 0 */
+
+/**
+  * @brief  The application entry point.
+  * @retval int
+  */
+int main(void)
+{
+
+  /* USER CODE BEGIN 1 */
+
+	printf("\tBuilt-date: %s\n", BUILT_DATE);	// show the date of the last built, to make sure its the correct one
+	printf("\tBuilt-time: %s\n", BUILT_TIME);	// show the time of the last built, to make sure its the correct one
+
+	LoadSettings();								// Load all the Setting from the Settings.h to the global variables
+
+  /* USER CODE END 1 */
+
+  /* MCU Configuration--------------------------------------------------------*/
+
+  /* Reset of all peripherals, Initializes the Flash interface and the Systick. */
+  HAL_Init();
+
+  /* USER CODE BEGIN Init */
+
+  /* USER CODE END Init */
+
+  /* Configure the system clock */
+  SystemClock_Config();
+
+  /* USER CODE BEGIN SysInit */
+
+  /* USER CODE END SysInit */
+
+  /* Initialize all configured peripherals */
+  MX_GPIO_Init();
+  MX_USART2_UART_Init();
+  MX_ADC1_Init();
+  MX_I2C1_Init();
+  MX_TIM2_Init();
+  MX_TIM6_Init();
+  /* USER CODE BEGIN 2 */
+
+  InitBaro();									// Initialize the barometer to set all the oversampling-rates and filters right values}
+  InitLcd();									// Initialize the Liquid crystal Display
+
+  //Start the timers for beeping
+  HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_3);		// Start timer 2
+  HAL_TIM_Base_Start_IT(&htim6);;				// Start timer 6
+  HAL_Delay(1);
+  DisableF();									// Timers started already, stop them for no annoiing Buzzer sound
+
+  printf("***********LOOP START***********\n");
+
+  /* USER CODE END 2 */
+
+  /* Infinite loop */
+  /* USER CODE BEGIN WHILE */
+  while (1)
+  {
+    /* USER CODE END WHILE */
+
+    /* USER CODE BEGIN 3 */
+
+	  // Let green LED blink
+	  static uint32_t lastBlink;
+	  static uint8_t toggle;
+#ifndef TESTMODE
+	  if(HAL_GetTick() - lastBlink >= BLINK_TIME){						// Check if enough time passed and this part should now be executed
+#else
+	  float analogBlinkTime = mapfloat(Battery.percent, 0, 100, 0, 2000);
+	  if(HAL_GetTick() - lastBlink >= analogBlinkTime){					// Match the blink time according the analog signal of A0
+#endif
+		  lastBlink = HAL_GetTick();									// Reset timer variable
+		  toggle = !toggle;
+		  HAL_GPIO_WritePin(LED_GREEN_GPIO_Port, LED_GREEN_Pin, toggle);
+	  }
+
+	  // Read analog voltage at A0
+	  static uint32_t lastAdcRead;
+	  if(HAL_GetTick() - lastAdcRead >= BATTERY_UPDATE_TIME){			// Check if enough time passed and this part should now be executed
+		  lastAdcRead = HAL_GetTick();									// Reset timer variable
+		  ReadVoltage(&Battery);										// Read voltage from analog pin, the battery and store it in the Battery enum
+		  CalcBatteryPercent(&Battery);									// Calculate a percentace out of the voltage, according to the real discharge curve
+	  }
+
+	  // Read Baro
+	  ReadBaro(&Baro);													// Read the I2C Barometer data, Preassure and Temperature
+
+
+#ifndef TESTMODE
+	  // Generate a tone out of vertical speed
+	  CalculateTone(Baro.verticalSpeed, &Beeper);
+#else
+	  float analogValue = mapfloat(Battery.percent, 0, 100, -10.0, 10.0);
+	  CalculateTone(analogValue, &Beeper);								// Test: generate tone from analog signal (A0)
+#endif
+
+	  // LCD Code....
+	  static uint32_t lastScreenUpdate;
+	  if(HAL_GetTick() - lastScreenUpdate >= SCREEN_UPDATE_TIME){		// Check if enough time passed and this part should now be executed
+		  Lcd.altitude = Baro.altitude;
+		  Lcd.temperature = Baro.temperature;
+		  Lcd.verticalSpeed = Baro.verticalSpeed;
+		  Lcd.preassure = Baro.preassure;
+		  Lcd.batteryPercent = Battery.percent;
+		  UpdateLcd(&Lcd);												// Update all the elements of the display
+		  lastScreenUpdate = HAL_GetTick();
+	  }
+
+  }
+  /* USER CODE END 3 */
+}
+
+/**
+  * @brief System Clock Configuration
+  * @retval None
+  */
+void SystemClock_Config(void)
+{
+  RCC_OscInitTypeDef RCC_OscInitStruct = {0};
+  RCC_ClkInitTypeDef RCC_ClkInitStruct = {0};
+
+  /** Configure the main internal regulator output voltage
+  */
+  if (HAL_PWREx_ControlVoltageScaling(PWR_REGULATOR_VOLTAGE_SCALE1) != HAL_OK)
+  {
+    Error_Handler();
+  }
+
+  /** Initializes the RCC Oscillators according to the specified parameters
+  * in the RCC_OscInitTypeDef structure.
+  */
+  RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSI;
+  RCC_OscInitStruct.HSIState = RCC_HSI_ON;
+  RCC_OscInitStruct.HSICalibrationValue = RCC_HSICALIBRATION_DEFAULT;
+  RCC_OscInitStruct.PLL.PLLState = RCC_PLL_ON;
+  RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSI;
+  RCC_OscInitStruct.PLL.PLLM = 1;
+  RCC_OscInitStruct.PLL.PLLN = 10;
+  RCC_OscInitStruct.PLL.PLLP = RCC_PLLP_DIV7;
+  RCC_OscInitStruct.PLL.PLLQ = RCC_PLLQ_DIV2;
+  RCC_OscInitStruct.PLL.PLLR = RCC_PLLR_DIV2;
+  if (HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK)
+  {
+    Error_Handler();
+  }
+
+  /** Initializes the CPU, AHB and APB buses clocks
+  */
+  RCC_ClkInitStruct.ClockType = RCC_CLOCKTYPE_HCLK|RCC_CLOCKTYPE_SYSCLK
+                              |RCC_CLOCKTYPE_PCLK1|RCC_CLOCKTYPE_PCLK2;
+  RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_PLLCLK;
+  RCC_ClkInitStruct.AHBCLKDivider = RCC_SYSCLK_DIV1;
+  RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV1;
+  RCC_ClkInitStruct.APB2CLKDivider = RCC_HCLK_DIV1;
+
+  if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_4) != HAL_OK)
+  {
+    Error_Handler();
+  }
+}
+
+/**
+  * @brief ADC1 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_ADC1_Init(void)
+{
+
+  /* USER CODE BEGIN ADC1_Init 0 */
+
+  /* USER CODE END ADC1_Init 0 */
+
+  ADC_MultiModeTypeDef multimode = {0};
+  ADC_ChannelConfTypeDef sConfig = {0};
+
+  /* USER CODE BEGIN ADC1_Init 1 */
+
+  /* USER CODE END ADC1_Init 1 */
+
+  /** Common config
+  */
+  hadc1.Instance = ADC1;
+  hadc1.Init.ClockPrescaler = ADC_CLOCK_ASYNC_DIV1;
+  hadc1.Init.Resolution = ADC_RESOLUTION_12B;
+  hadc1.Init.DataAlign = ADC_DATAALIGN_RIGHT;
+  hadc1.Init.ScanConvMode = ADC_SCAN_DISABLE;
+  hadc1.Init.EOCSelection = ADC_EOC_SINGLE_CONV;
+  hadc1.Init.LowPowerAutoWait = DISABLE;
+  hadc1.Init.ContinuousConvMode = DISABLE;
+  hadc1.Init.NbrOfConversion = 1;
+  hadc1.Init.DiscontinuousConvMode = DISABLE;
+  hadc1.Init.ExternalTrigConv = ADC_SOFTWARE_START;
+  hadc1.Init.ExternalTrigConvEdge = ADC_EXTERNALTRIGCONVEDGE_NONE;
+  hadc1.Init.DMAContinuousRequests = DISABLE;
+  hadc1.Init.Overrun = ADC_OVR_DATA_PRESERVED;
+  hadc1.Init.OversamplingMode = DISABLE;
+  if (HAL_ADC_Init(&hadc1) != HAL_OK)
+  {
+    Error_Handler();
+  }
+
+  /** Configure the ADC multi-mode
+  */
+  multimode.Mode = ADC_MODE_INDEPENDENT;
+  if (HAL_ADCEx_MultiModeConfigChannel(&hadc1, &multimode) != HAL_OK)
+  {
+    Error_Handler();
+  }
+
+  /** Configure Regular Channel
+  */
+  sConfig.Channel = ADC_CHANNEL_5;
+  sConfig.Rank = ADC_REGULAR_RANK_1;
+  sConfig.SamplingTime = ADC_SAMPLETIME_2CYCLES_5;
+  sConfig.SingleDiff = ADC_SINGLE_ENDED;
+  sConfig.OffsetNumber = ADC_OFFSET_NONE;
+  sConfig.Offset = 0;
+  if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN ADC1_Init 2 */
+
+  /* USER CODE END ADC1_Init 2 */
+
+}
+
+/**
+  * @brief I2C1 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_I2C1_Init(void)
+{
+
+  /* USER CODE BEGIN I2C1_Init 0 */
+
+  /* USER CODE END I2C1_Init 0 */
+
+  /* USER CODE BEGIN I2C1_Init 1 */
+
+  /* USER CODE END I2C1_Init 1 */
+  hi2c1.Instance = I2C1;
+  hi2c1.Init.Timing = 0x10D19CE4;
+  hi2c1.Init.OwnAddress1 = 0;
+  hi2c1.Init.AddressingMode = I2C_ADDRESSINGMODE_7BIT;
+  hi2c1.Init.DualAddressMode = I2C_DUALADDRESS_DISABLE;
+  hi2c1.Init.OwnAddress2 = 0;
+  hi2c1.Init.OwnAddress2Masks = I2C_OA2_NOMASK;
+  hi2c1.Init.GeneralCallMode = I2C_GENERALCALL_DISABLE;
+  hi2c1.Init.NoStretchMode = I2C_NOSTRETCH_DISABLE;
+  if (HAL_I2C_Init(&hi2c1) != HAL_OK)
+  {
+    Error_Handler();
+  }
+
+  /** Configure Analogue filter
+  */
+  if (HAL_I2CEx_ConfigAnalogFilter(&hi2c1, I2C_ANALOGFILTER_ENABLE) != HAL_OK)
+  {
+    Error_Handler();
+  }
+
+  /** Configure Digital filter
+  */
+  if (HAL_I2CEx_ConfigDigitalFilter(&hi2c1, 0) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN I2C1_Init 2 */
+
+  /* USER CODE END I2C1_Init 2 */
+
+}
+
+/**
+  * @brief TIM2 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_TIM2_Init(void)
+{
+
+  /* USER CODE BEGIN TIM2_Init 0 */
+
+  /* USER CODE END TIM2_Init 0 */
+
+  TIM_ClockConfigTypeDef sClockSourceConfig = {0};
+  TIM_MasterConfigTypeDef sMasterConfig = {0};
+  TIM_OC_InitTypeDef sConfigOC = {0};
+
+  /* USER CODE BEGIN TIM2_Init 1 */
+
+  /* USER CODE END TIM2_Init 1 */
+  htim2.Instance = TIM2;
+  htim2.Init.Prescaler = 80;
+  htim2.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim2.Init.Period = 600;
+  htim2.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+  htim2.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+  if (HAL_TIM_Base_Init(&htim2) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sClockSourceConfig.ClockSource = TIM_CLOCKSOURCE_INTERNAL;
+  if (HAL_TIM_ConfigClockSource(&htim2, &sClockSourceConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  if (HAL_TIM_PWM_Init(&htim2) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
+  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
+  if (HAL_TIMEx_MasterConfigSynchronization(&htim2, &sMasterConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sConfigOC.OCMode = TIM_OCMODE_PWM1;
+  sConfigOC.Pulse = 300;
+  sConfigOC.OCPolarity = TIM_OCPOLARITY_HIGH;
+  sConfigOC.OCFastMode = TIM_OCFAST_ENABLE;
+  if (HAL_TIM_PWM_ConfigChannel(&htim2, &sConfigOC, TIM_CHANNEL_1) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  if (HAL_TIM_PWM_ConfigChannel(&htim2, &sConfigOC, TIM_CHANNEL_3) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN TIM2_Init 2 */
+
+  /* USER CODE END TIM2_Init 2 */
+  HAL_TIM_MspPostInit(&htim2);
+
+}
+
+/**
+  * @brief TIM6 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_TIM6_Init(void)
+{
+
+  /* USER CODE BEGIN TIM6_Init 0 */
+
+  /* USER CODE END TIM6_Init 0 */
+
+  TIM_MasterConfigTypeDef sMasterConfig = {0};
+
+  /* USER CODE BEGIN TIM6_Init 1 */
+
+  /* USER CODE END TIM6_Init 1 */
+  htim6.Instance = TIM6;
+  htim6.Init.Prescaler = 2000;
+  htim6.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim6.Init.Period = 10;
+  htim6.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+  if (HAL_TIM_Base_Init(&htim6) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sMasterConfig.MasterOutputTrigger = TIM_TRGO_UPDATE;
+  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
+  if (HAL_TIMEx_MasterConfigSynchronization(&htim6, &sMasterConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN TIM6_Init 2 */
+
+  /* USER CODE END TIM6_Init 2 */
+
+}
+
+/**
+  * @brief USART2 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_USART2_UART_Init(void)
+{
+
+  /* USER CODE BEGIN USART2_Init 0 */
+
+  /* USER CODE END USART2_Init 0 */
+
+  /* USER CODE BEGIN USART2_Init 1 */
+
+  /* USER CODE END USART2_Init 1 */
+  huart2.Instance = USART2;
+  huart2.Init.BaudRate = 115200;
+  huart2.Init.WordLength = UART_WORDLENGTH_8B;
+  huart2.Init.StopBits = UART_STOPBITS_1;
+  huart2.Init.Parity = UART_PARITY_NONE;
+  huart2.Init.Mode = UART_MODE_TX_RX;
+  huart2.Init.HwFlowCtl = UART_HWCONTROL_NONE;
+  huart2.Init.OverSampling = UART_OVERSAMPLING_16;
+  huart2.Init.OneBitSampling = UART_ONE_BIT_SAMPLE_DISABLE;
+  huart2.AdvancedInit.AdvFeatureInit = UART_ADVFEATURE_NO_INIT;
+  if (HAL_UART_Init(&huart2) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN USART2_Init 2 */
+
+  /* USER CODE END USART2_Init 2 */
+
+}
+
+/**
+  * @brief GPIO Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_GPIO_Init(void)
+{
+  GPIO_InitTypeDef GPIO_InitStruct = {0};
+  /* USER CODE BEGIN MX_GPIO_Init_1 */
+
+  /* USER CODE END MX_GPIO_Init_1 */
+
+  /* GPIO Ports Clock Enable */
+  __HAL_RCC_GPIOC_CLK_ENABLE();
+  __HAL_RCC_GPIOH_CLK_ENABLE();
+  __HAL_RCC_GPIOA_CLK_ENABLE();
+  __HAL_RCC_GPIOB_CLK_ENABLE();
+
+  /*Configure GPIO pin Output Level */
+  HAL_GPIO_WritePin(LED_GREEN_GPIO_Port, LED_GREEN_Pin, GPIO_PIN_RESET);
+
+  /*Configure GPIO pin : B1_Pin */
+  GPIO_InitStruct.Pin = B1_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_IT_FALLING;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  HAL_GPIO_Init(B1_GPIO_Port, &GPIO_InitStruct);
+
+  /*Configure GPIO pin : LED_GREEN_Pin */
+  GPIO_InitStruct.Pin = LED_GREEN_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  HAL_GPIO_Init(LED_GREEN_GPIO_Port, &GPIO_InitStruct);
+
+  /* USER CODE BEGIN MX_GPIO_Init_2 */
+
+  /* USER CODE END MX_GPIO_Init_2 */
+}
+
+/* USER CODE BEGIN 4 */
+
+void LoadSettings(){
+	// Fill all the values from Settings.h to all structs
+	Beeper.climb_threshold = 		CLIMB_THRESHOLD;
+	Beeper.near_climb_threshold = 	NEAR_CLIMB_THRESHOLD;
+	Beeper.sink_threshold = 		SINK_THRESHOLD;
+	Beeper.climb_beeps_start = 		CLIMB_BEEPS_AT_THRESHOLD;
+	Beeper.climb_beeps_stop = 		CLIMB_BEEPS_AT_MAX_VARIO;
+	Beeper.start_f_climb = 			CLIMB_FREQUENCY_AT_THERSHOLD;
+	Beeper.stop_f_climb = 			CLIMB_FREQUENCY_AT_MAX_VARIO;
+	Beeper.start_f_sink = 			SINK_FREQUENCY_AT_THERSHOLD;
+	Beeper.stop_f_sink = 			SINK_FREQUENCY_AT_MIN_VARIO;
+	Beeper.min_peep_time_start = 	MIN_PEEP_TIME_AT_THRESHOLD;
+	Beeper.min_peep_time_stop = 	MIN_PEEP_TIME_AT_MAX_VARIO;
+	Beeper.volume = 				VOLUME;
+
+	Battery.voltAt0Percent = 		BAT_0;
+	Battery.voltAt5Percent = 		BAT_5;
+	Battery.voltAt20Percent = 		BAT_20;
+	Battery.voltAt75Percent = 		BAT_75;
+	Battery.voltAt100Percent = 		BAT_100;
+
+	Baro.preassureSealevel = 		PRASSURE_AT_SEALEVEL;
+
+}
+
+void ReadVoltage(Battery_t *tmpBat){
+	HAL_ADC_Start(&hadc1);
+	HAL_ADC_PollForConversion(&hadc1, 1);						// 1 ms Timeout
+	uint32_t ADC_value = HAL_ADC_GetValue(&hadc1) * ADC_MULTI;	// Read Voltage and scale it to get millivolts
+	uint32_t voltage = ((float)ADC_value * (float)RES_RATIO);	// Scale the ADC reading according the Voltage Devider
+
+	//printf("ADC value: %li\n",ADC_value);
+	//printf("voltage: %li\n",voltage);
+
+	tmpBat->voltage = voltage;									// Save the result in the struct
+}
+
+/*
+ * Map the Battery voltage to a real Discharge curve
+ * The curve is based on a 4 point model
+ */
+void CalcBatteryPercent(Battery_t *tmpBat){
+	float x0, y0, x1, y1, yp;
+	//Handle Error
+	if(tmpBat->voltage < tmpBat->voltAt0Percent){
+		tmpBat->percent = 0;
+		return;
+	}
+	if(tmpBat->voltage > tmpBat->voltAt100Percent){
+		tmpBat->percent = 100;
+		return;
+	}
+
+	if(tmpBat->voltage >= tmpBat->voltAt0Percent && tmpBat->voltage < tmpBat->voltAt5Percent){
+		x0=tmpBat->voltAt0Percent;
+		y0=0;
+		x1=tmpBat->voltAt5Percent;
+		y1=5;
+	}else if(tmpBat->voltage >= tmpBat->voltAt5Percent && tmpBat->voltage < tmpBat->voltAt20Percent){
+		x0=tmpBat->voltAt5Percent;
+		y0=5;
+		x1=tmpBat->voltAt20Percent;
+		y1=20;
+	}else if(tmpBat->voltage >= tmpBat->voltAt20Percent && tmpBat->voltage < tmpBat->voltAt75Percent){
+		x0=tmpBat->voltAt20Percent;
+		y0=20;
+		x1=tmpBat->voltAt75Percent;
+		y1=75;
+	}else if(tmpBat->voltage >= tmpBat->voltAt75Percent && tmpBat->voltage <= tmpBat->voltAt100Percent){
+		x0=tmpBat->voltAt75Percent;
+		y0=75;
+		x1=tmpBat->voltAt100Percent;
+		y1=100;
+	}
+
+	yp = y0 + ((y1-y0)/(x1-x0)) * (tmpBat->voltage - x0);
+	//return (uint8_t)yp;
+	tmpBat->percent = (uint8_t)yp;
+}
+
+/*
+ * constrain v0 to min v1 and max v2
+ */
+float constrain(float v0, float v1, float v2){
+	if(v0 < v1) v0 = v1;
+	if(v0 > v2) v0 = v2;
+	return v0;
+}
+
+/*
+ * linear conversion from a value between x and y to a range from a to b
+ */
+float mapfloat(float x, float in_min, float in_max, float out_min, float out_max) {
+	return (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
+}
+
+void InitBaro(){
+	if(BMP280_Check()== 1)
+		printf("all good");
+	else
+		printf("no i2c device found");
+
+	BMP280_Read_Calibration();				// Read internal calibaration data and save them locally (needed for further calculations)
+	BMP280_SetStandby(BMP280_STBY_1s);		// Set normal mode inactive duration (standby time)
+	BMP280_SetFilter(BMP280_FILTER_2);		// Set IIR filter constant
+	BMP280_SetOSRST(BMP280_OSRS_T_x2);		// Set oversampling for temperature
+	BMP280_SetOSRSP(BMP280_OSRS_P_x1);		// Set oversampling for pressure
+	BMP280_SetMode(BMP280_MODE_NORMAL);		// Set normal mode (perpetual periodic conversion)
+}
+
+void ReadBaro(Barometer_t *tmpBaro){
+	static uint32_t lastBaroRead;
+	static uint32_t conversionTimer;
+
+	static int32_t raw_preassure, raw_temperature;
+
+
+	if(HAL_GetTick() - conversionTimer > 12){
+		BMP280_Read_UTP(&raw_temperature, &raw_preassure);					// Read the raw data of the baro as often as possible, else the read value does not change much
+		conversionTimer = HAL_GetTick();
+	}
+
+	if(HAL_GetTick() - lastBaroRead > BARO_UPDATE_TIME){
+		double baroElapsedTime = (HAL_GetTick() - lastBaroRead) / 1000.0f;	// get exact time since last read in Seconds
+		lastBaroRead = HAL_GetTick();
+
+		tmpBaro->temperature = BMP280_CalcT(raw_temperature) / 100.0;		// convert to correct number format (2510 -> 25.10)
+		tmpBaro->preassure = BMP280_CalcP(raw_preassure) / 100000.0;		// convert to correct number format (100663688 -> 100663.688) and from mPa to hPa
+
+		float r= tmpBaro->preassure / tmpBaro->preassureSealevel;
+		float newAltitude = (1.0 - pow(r,0.1902949f))*44330.77f;			// Calculate an altitude from preassure
+
+		float altitudeDelta = tmpBaro->altitude - newAltitude;				// Calculate an altitude delta since last measurement
+		tmpBaro->verticalSpeed = (altitudeDelta / baroElapsedTime);			// Calculate an vertical speed out of altiude delta and time
+
+		tmpBaro->altitude = newAltitude;									// Save the new altitude to use in next loop as old value
+	}
+}
+
+
+void CalculateTone(float vSpeed, Beeper_t *tmpBeeper){
+	static float oldVSpeed;
+	static uint32_t peep_start;
+	vSpeed = constrain(vSpeed, MIN_VARIO , MAX_VARIO);
+
+	// This is to only calculate (and apply) a new tone if the old tone is in its LOW state.. so the PWM is in the low phase.
+	// Need this to not hear any weired artefacts
+	if(oldVSpeed >= tmpBeeper->climb_threshold){
+		unsigned int peep_time = (unsigned int)mapfloat(oldVSpeed, tmpBeeper->climb_threshold, MAX_VARIO,
+						(float)tmpBeeper->min_peep_time_start, (float)tmpBeeper->min_peep_time_stop);
+		if (HAL_GetTick() - peep_start < peep_time)
+			return;
+	}else if(oldVSpeed <= tmpBeeper->sink_threshold){
+		if (HAL_GetTick() - peep_start < 100)
+			return;
+	}
+
+	peep_start = HAL_GetTick();
+
+	if(vSpeed > oldVSpeed-0.1 && vSpeed < oldVSpeed+0.1)	// Check if NO change in vertical speed
+		return;
+
+	oldVSpeed = vSpeed;										// set oldVSpeed to the new vSpeed for next loop
+
+	if(vSpeed >= tmpBeeper->climb_threshold){
+		unsigned int freqency = mapfloat(vSpeed,0.0, MAX_VARIO, tmpBeeper->start_f_climb, tmpBeeper->stop_f_climb);
+		float peepsPS = mapfloat(vSpeed, 0.0, MAX_VARIO, tmpBeeper->climb_beeps_start,tmpBeeper->climb_beeps_stop);
+		ApplyF(freqency, peepsPS, tmpBeeper->volume);
+
+	}else if(vSpeed >= tmpBeeper->near_climb_threshold && vSpeed < tmpBeeper->climb_threshold && ENABLE_NEAR_CLIMB){
+		unsigned int freqency = 550;
+		ApplyF(freqency, 0.25, tmpBeeper->volume);
+
+	}else if(vSpeed <= tmpBeeper->sink_threshold){
+		TIM6->CR1 &= 0xFE;	//Disable Timer
+		unsigned int freqency = mapfloat(vSpeed,0.0, MIN_VARIO, tmpBeeper->start_f_sink, tmpBeeper->stop_f_sink);
+		ApplyF(freqency, 0.0, tmpBeeper->volume);
+
+	}else{	// stop peep
+		DisableF();
+	}
+}
+
+/*
+ * SYSCLOCK = 80 MHz
+ * TIM2 prescaler = 80
+ * => TIM2 freq = 1MHz
+ * TIM2 autoload = 600
+ * TIM2 pulse = 300
+ *
+ * TIM6 prescaler = 2000
+ * => TIM6 freq = 40kHz
+ * TIM6 autoload = 10
+ *
+ *
+ * TIM2 is for PWM, so tone pitch and volume
+ * TIM6 is for beeping, so the slow second modulation of this tone
+ */
+void ApplyF(unsigned int freq, float bps, uint8_t vol){
+	/*
+	 * freq in Hz
+	 * bps in float beeps, per seconds
+	 * vol 1 - 10
+	 */
+	if(vol == 0){						// With no volume there is no need to play any sound
+		DisableF();
+		return;
+	}
+	uint32_t period = 1000000/freq;				//new counter period = freq (in µs)
+	uint32_t Bperiod = 40000.0f/(bps * 2.0); 	// * 2.0
+	uint32_t volume = (float)period / mapfloat((float)vol, 1.0, 10.0, 1000.0, 1.1);	//new pulse width = volume (max 1/2 freq)
+
+	DisableF();							// Disable the sound, to not hear any weired sound while configer new sound
+	TIM2->ARR = period -1 ;				// Set Timer 2 to frequency we want to hear
+	if(TIM2->CNT >= TIM2->ARR)
+		TIM2->CNT = 0;
+	TIM2->CCR1 = volume;				// Set the Pulse width according the volume (PWM)
+	if(bps > 0.001){					// Only if there actually is "something"
+		TIM6->CNT = 0;
+		TIM6->ARR = Bperiod- 1;			// Set Timer 6 to the slow beep freq. modulated to the high pitch of TIM2
+		TIM6->CR1 |= 0x01;				//Enable  Timer 6
+	}
+	TIM2->CR1 |= 0x01;					// Enable  Timer 2
+	peepState = 1;						// write, that Buzzer is on
+}
+
+extern inline void DisableF(void){		// Turn off both timers and make them ready for a smooth restart
+	if(TIM2->CNT < TIM2->ARR){
+		TIM2->CNT = TIM2->ARR + 1;		// Set Timer 2 actual counter to one above the auto-reload-level
+	}
+	TIM6->CR1 &= 0xFE;					// Disable Timer
+	TIM2->CR1 &= 0xFE;					// Disable Timer
+}
+
+/*
+ * TODO
+ */
+void InitLcd(){
+	HD44780_Init(2);
+}
+
+/*
+ * TODO
+ */
+void UpdateLcd(Lcd_t *tmpLcd){
+	HD44780_Clear();
+	HD44780_Backlight();
+	HD44780_SetCursor(0,0);
+
+	char line1[16];
+	sprintf(line1, "ALT: %.1f", tmpLcd->altitude);
+	HD44780_PrintStr(line1);
+
+	HD44780_SetCursor(0,1);
+	//HD44780_PrintStr("Altitude: " + sprintf(tmp->));
+}
+
+/* USER CODE END 4 */
+
+/**
+  * @brief  This function is executed in case of error occurrence.
+  * @retval None
+  */
+void Error_Handler(void)
+{
+  /* USER CODE BEGIN Error_Handler_Debug */
+  /* User can add his own implementation to report the HAL error return state */
+  __disable_irq();
+  while (1)
+  {
+  }
+  /* USER CODE END Error_Handler_Debug */
+}
+
+#ifdef  USE_FULL_ASSERT
+/**
+  * @brief  Reports the name of the source file and the source line number
+  *         where the assert_param error has occurred.
+  * @param  file: pointer to the source file name
+  * @param  line: assert_param error line source number
+  * @retval None
+  */
+void assert_failed(uint8_t *file, uint32_t line)
+{
+  /* USER CODE BEGIN 6 */
+  /* User can add his own implementation to report the file name and line number,
+     ex: printf("Wrong parameters value: file %s on line %d\r\n", file, line) */
+  /* USER CODE END 6 */
+}
+#endif /* USE_FULL_ASSERT */

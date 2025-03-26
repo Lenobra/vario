@@ -1,10 +1,10 @@
-21:17:32 **** Incremental Build of configuration Debug for project vario-software ****
+00:11:16 **** Incremental Build of configuration Debug for project vario-software ****
 make -j20 all 
 arm-none-eabi-size  vario-software.elf 
    text	   data	    bss	    dec	    hex	filename
-  44676	    120	   2584	  47380	   b914	vario-software.elf
+  53572	    484	   2584	  56640	   dd40	vario-software.elf
 Finished building: default.size.stdout
  
 
-21:17:32 Build Finished. 0 errors, 0 warnings. (took 248ms)
+00:11:17 Build Finished. 0 errors, 0 warnings. (took 82ms)
 
