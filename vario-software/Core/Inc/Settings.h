@@ -47,7 +47,7 @@
 #define AREF_MILLI    					3300		// Ref Voltage
 #define ADC_BITS						4095		// number of bits from the adc conversion
 #define ADC_MULTI						((float)AREF_MILLI / (float)ADC_BITS)		// (Ref/ADCres)=3345/4095 =0.81685
-#define RES_RATIO     					1.0			// Ratio of the Voltage devider
+#define RES_RATIO     					3.0			// Ratio of the Voltage devider
 
 // Battery settings
 #define BATTERY_UPDATE_TIME				100 		// ms
