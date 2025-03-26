@@ -645,13 +645,13 @@ void LoadSettings(){
 void ReadVoltage(Battery_t *tmpBat){
 	HAL_ADC_Start(&hadc1);
 	HAL_ADC_PollForConversion(&hadc1, 1);						// 1 ms Timeout
-	uint32_t ADC_value = HAL_ADC_GetValue(&hadc1) * ADC_MULTI;
-	uint32_t voltage = ((float)ADC_value*(float)RES_RATIO);
+	uint32_t ADC_value = HAL_ADC_GetValue(&hadc1) * ADC_MULTI;	// Read Voltage and scale it to get millivolts
+	uint32_t voltage = ((float)ADC_value * (float)RES_RATIO);	// Scale the ADC reading according the Voltage Devider
 
 	//printf("ADC value: %li\n",ADC_value);
 	//printf("voltage: %li\n",voltage);
 
-	tmpBat->voltage = voltage;
+	tmpBat->voltage = voltage;									// Save the result in the struct
 }
 
 /*
