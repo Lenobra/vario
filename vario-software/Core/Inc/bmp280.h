@@ -1,9 +1,13 @@
 #ifndef __BMP280_H
 #define __BMP280_H
 
+#define USE_ST_I2C_CODE
 
+#ifndef USE_ST_I2C_CODE
 #include "i2c.h"
+#else
 #include "stm32l4xx_hal.h"
+#endif
 #include "Settings.h"
 
 

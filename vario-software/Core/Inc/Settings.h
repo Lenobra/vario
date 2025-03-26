@@ -11,7 +11,7 @@
 #define BUILT_DATE				__DATE__	// Store the built date
 #define BUILT_TIME				__TIME__	// Store the built time
 
-#define TESTMODE							// uncomment this line if normal use
+//#define TESTMODE							// uncomment this line if normal use
 
 // A common place for all settings
 // Blink

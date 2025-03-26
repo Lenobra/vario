@@ -72,6 +72,8 @@ static float t_fine_f;
 extern I2C_HandleTypeDef hi2c1;
 
 
+
+#ifndef USE_ST_I2C_CODE
 // Write a new value to BMP280 register
 // input:
 //   reg - register number
@@ -110,6 +112,32 @@ static BMP280_RESULT __reg_read_bulk(uint8_t reg, uint8_t *buf, uint32_t count) 
 
 	return BMP280_ERROR;
 }
+#else
+static void __reg_write(uint8_t reg, uint8_t value) {
+	uint8_t buf[2] = { reg, value };
+
+	HAL_I2C_Master_Transmit(&hi2c1, BMP280_ADDR, buf, sizeof(buf), 10);
+}
+
+static uint8_t __reg_read(uint8_t reg) {
+	uint8_t value = 0;
+
+	HAL_I2C_Master_Transmit(&hi2c1, BMP280_ADDR, &reg, 1, 10);
+	HAL_I2C_Master_Receive(&hi2c1, BMP280_ADDR, &value, 1, 10);
+
+	return value;
+}
+
+static BMP280_RESULT __reg_read_bulk(uint8_t reg, uint8_t *buf, uint32_t count) {
+	if(HAL_I2C_Master_Transmit(&hi2c1, BMP280_ADDR, &reg, 1, 10) == HAL_OK){
+		if(HAL_I2C_Master_Receive(&hi2c1, BMP280_ADDR, buf, count, 10) == HAL_OK){
+			return BMP280_SUCCESS;
+		}
+	}
+
+	return BMP280_ERROR;
+}
+#endif
 
 // Check if BMP280 present on I2C bus
 // return: BMP280_SUCCESS if BMP280 present, BMP280_ERROR otherwise
