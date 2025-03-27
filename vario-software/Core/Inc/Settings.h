@@ -12,6 +12,7 @@
 #define BUILT_TIME				__TIME__	// Store the built time
 
 //#define TESTMODE							// uncomment this line if normal use
+#define USE_BATTERY_NOT_POTI				// uncomment this line if normal use
 
 // A common place for all settings
 // Blink
@@ -47,19 +48,25 @@
 #define AREF_MILLI    					3300		// Ref Voltage
 #define ADC_BITS						4095		// number of bits from the adc conversion
 #define ADC_MULTI						((float)AREF_MILLI / (float)ADC_BITS)		// (Ref/ADCres)=3345/4095 =0.81685
+
+#ifdef USEUSE_BATTERY_NOT_POTI
 #define RES_RATIO     					3.0			// Ratio of the Voltage devider
+#else
+#define RES_RATIO     					1.0			// Ratio of the Voltage devider
+#endif
 
 // Battery settings
 #define BATTERY_UPDATE_TIME				100 		// ms
 
-/*
-// 1s Lipo Battery
-#define BAT_0							3080		// Voltage @ 0%
-#define BAT_5							3600		// Voltage @ 5%
-#define BAT_20							3740		// Voltage @ 20%
-#define BAT_75							3990		// Voltage @ 75%
-#define BAT_100							4100		// Voltage @ 100%
-*/
+#ifdef USEUSE_BATTERY_NOT_POTI
+// 6xAA Alkali Battery
+#define BAT_0							6000		// Voltage @ 0%		6 * 1.0V
+#define BAT_5							6300		// Voltage @ 5%		6 * 1.05V
+#define BAT_20							6600		// Voltage @ 20%	6 * 1.1V
+#define BAT_75							8400		// Voltage @ 75%	6 * 1.4V
+#define BAT_100							9000		// Voltage @ 100% 	6 * 1.5V
+
+#else
 
 // linear poti
 #define BAT_0							0			// Voltage @ 0%
@@ -67,6 +74,8 @@
 #define BAT_20							660			// Voltage @ 20%
 #define BAT_75							2475		// Voltage @ 75%
 #define BAT_100							3300		// Voltage @ 100%
+
+#endif
 
 // Barometer settings
 #define PRASSURE_AT_SEALEVEL			1013.25f	// hPa
