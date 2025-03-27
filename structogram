@@ -1,0 +1,23 @@
+// Program Flow
+digraph {
+	Start [label=Start]
+	LoadSettings [label="LoadSettings()"]
+	InitHardware [label="InitHardware()"]
+	LoopStart [label="while (1) {"]
+	BatteryRead [label="ReadBattery()"]
+	BarometerRead [label="ReadBaro()"]
+	ToneGeneration [label="GenerateTone()"]
+	LCDUpdate [label="UpdateLcd()"]
+	EndLoop [label="}"]
+	End [label=End]
+	Start -> LoadSettings
+	LoadSettings -> InitHardware
+	InitHardware -> LoopStart
+	LoopStart -> BatteryRead
+	BatteryRead -> BarometerRead
+	BarometerRead -> ToneGeneration
+	ToneGeneration -> LCDUpdate
+	LCDUpdate -> EndLoop
+	EndLoop -> LoopStart
+	EndLoop -> End
+}
