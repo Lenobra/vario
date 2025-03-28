@@ -51,9 +51,9 @@ def generate_structogram():
     dot.edge('MainLoop', 'End', label='Exit main loop')
 
     # Save and render the diagram
-    dot.render('pap-detailliert', format='png', cleanup=True)
+    dot.render('./media/pap-detailed', format='png', cleanup=True)
 
-    print("Detailed pap saved as 'pap-detailliert.png'")
+    print("Detailed pap saved as 'pap-detailed.png' in media")
 
 if __name__ == '__main__':
     generate_structogram()

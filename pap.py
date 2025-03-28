@@ -37,5 +37,5 @@ dot.edge('EndLoop', 'LoopStart')
 dot.edge('EndLoop', 'End')
 
 # Render and Digraphsplay the graph
-dot.render('pap', format='png', cleanup=True)
-print("pap saved as 'pap.png'")
+dot.render('./media/pap', format='png', cleanup=True)
+print("pap saved as 'pap.png' in media")
