@@ -299,3 +299,4 @@
 2025-03-28 16:06:53,829 [INFO] WebApp:593 - Web application path used /opt/stm32cubeide/plugins/com.st.stm32cube.common.mx_6.14.0.202502271554/db/plugins/mcufinder/reactClient1/index.html
 2025-03-28 16:06:53,934 [INFO] WebApp:191 - Connection restablished
 2025-03-28 16:06:54,031 [INFO] UserAuth:486 - Internet connection configuration mode: 1
+2025-03-28 16:41:10,667 [ERROR] LogOutputStream:75 - [STDERR_REDIRECT] 
