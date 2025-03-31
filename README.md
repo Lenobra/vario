@@ -16,7 +16,7 @@ D6	- PB10	- Buzzer
 ![Alt-Text](/media/vario-cirkitdesign.png)
 ### Tested demo features:  
 ![Alt-Text](/media/vario-build.png)  
-A full demo video can be found in the pictures-and-videos file
+A full demo video can be found in [media](media) folder.
 # Documentation
 RTM - oh wait, there is no documentation. That's right. It's for a school project and not required.  
 Writing documentation for a hobby >> writing documentation not required for an school project.  
